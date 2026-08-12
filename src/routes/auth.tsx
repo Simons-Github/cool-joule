@@ -7,6 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { APP_NAME } from "@/lib/app-config";
+import {
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_REQUIREMENTS_HINT,
+  mapAuthErrorMessage,
+  validatePassword,
+} from "@/lib/password";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -50,7 +56,7 @@ function AuthPage() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) {
-      toast.error(error.message);
+      toast.error(mapAuthErrorMessage(error));
       return;
     }
     navigate({ to: "/tagebuch", replace: true });
@@ -58,8 +64,9 @@ function AuthPage() {
 
   async function signUp(e: React.FormEvent) {
     e.preventDefault();
-    if (password.length < 8) {
-      toast.error("Das Passwort muss mindestens 8 Zeichen lang sein.");
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      toast.error(passwordError);
       return;
     }
     setLoading(true);
@@ -70,7 +77,7 @@ function AuthPage() {
     });
     setLoading(false);
     if (error) {
-      toast.error(error.message);
+      toast.error(mapAuthErrorMessage(error));
       return;
     }
     if (!data.session) {
@@ -185,14 +192,14 @@ function AuthPage() {
                     id="p2"
                     type="password"
                     required
-                    minLength={8}
+                    minLength={PASSWORD_MIN_LENGTH}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     aria-describedby="p2-hint"
                     className="border-0 bg-slate-50 focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:ring-offset-0 rounded-xl"
                   />
                   <p id="p2-hint" className="text-xs text-slate-400">
-                    Mindestens 8 Zeichen
+                    {PASSWORD_REQUIREMENTS_HINT}
                   </p>
                 </div>
                 <Button type="submit" className="w-full rounded-xl" disabled={loading}>
