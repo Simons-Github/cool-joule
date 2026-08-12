@@ -179,6 +179,4 @@ Die App wird automatisiert über Vercel deployt und unter [cool-joule.vercel.app
 
 ## Lizenz & Autor
 
-Dieses Projekt steht unter der [MIT-Lizenz](./LICENSE).
-
-_Projekt von [Simon Berger](https://github.com/Simons-Github) — Portfolio-Projekt 2026._
+MIT © 2026 **[Simon Berger](https://github.com/Simons-Github)** — portfolio project.
