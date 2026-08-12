@@ -16,8 +16,10 @@ dist-ssr
 .nitro
 *.local
 
-# Environment variables
+# Environment variables (keep .env.example tracked)
 .env
+.env.*
+!.env.example
 
 # Supabase CLI cache
 supabase/.temp/

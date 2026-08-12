@@ -82,7 +82,11 @@ function DiaryPage() {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("food_logs").delete().eq("id", id);
+      const { error } = await supabase
+        .from("food_logs")
+        .delete()
+        .eq("id", id)
+        .eq("user_id", user.id);
       if (error) throw error;
     },
     onSuccess: () => {

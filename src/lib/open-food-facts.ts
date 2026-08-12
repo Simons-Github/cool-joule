@@ -223,6 +223,5 @@ export async function lookupProductByBarcode(
 
 export function getOpenFoodFactsErrorMessage(error: unknown): string {
   if (error instanceof OpenFoodFactsError) return error.message;
-  if (error instanceof Error && error.message) return error.message;
   return "Suche fehlgeschlagen. Bitte erneut versuchen.";
 }
