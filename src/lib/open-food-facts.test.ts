@@ -231,4 +231,13 @@ describe("getOpenFoodFactsErrorMessage", () => {
     const err = new OpenFoodFactsError("HTTP", "Server nicht erreichbar.");
     expect(getOpenFoodFactsErrorMessage(err)).toBe("Server nicht erreichbar.");
   });
+
+  it("returns generic German fallback for non-OFF errors", () => {
+    expect(getOpenFoodFactsErrorMessage(new Error("fetch failed: ECONNREFUSED"))).toBe(
+      "Suche fehlgeschlagen. Bitte erneut versuchen.",
+    );
+    expect(getOpenFoodFactsErrorMessage("unexpected")).toBe(
+      "Suche fehlgeschlagen. Bitte erneut versuchen.",
+    );
+  });
 });
