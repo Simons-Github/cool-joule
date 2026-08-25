@@ -1,4 +1,5 @@
 import {
+  FOOD_PHOTO_JPEG_QUALITY,
   FoodPhotoError,
   MAX_IMAGE_BYTES,
   MAX_IMAGE_EDGE,
@@ -58,7 +59,7 @@ export async function compressFoodPhoto(file: File): Promise<{
   bitmap.close();
 
   const blob = await new Promise<Blob | null>((resolve) => {
-    canvas.toBlob(resolve, "image/jpeg", 0.8);
+    canvas.toBlob(resolve, "image/jpeg", FOOD_PHOTO_JPEG_QUALITY);
   });
   if (!blob) {
     throw new FoodPhotoError("INVALID_IMAGE", "Das Bild konnte nicht komprimiert werden.");

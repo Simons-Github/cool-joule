@@ -39,7 +39,9 @@ export function FoodPhotoResults({
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">Schätzung durch KI — bitte prüfen.</p>
+      <p className="text-sm text-muted-foreground">
+        Nährwerte aus Open Food Facts, sonst KI-Schätzung — bitte prüfen.
+      </p>
       <ScrollArea className="h-72">
         <div className="space-y-2 pr-3">
           {drafts.map((draft) => {
@@ -232,7 +234,8 @@ export function FoodPhotoCapture({
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
-        Fotografiere dein Essen oder lade ein Bild hoch. Die Nährwerte sind eine Schätzung.
+        Fotografiere dein Essen oder lade ein Bild hoch. Nährwerte kommen wo möglich aus Open Food
+        Facts — bitte prüfen.
       </p>
       <FoodPhotoQuotaHint quota={quota.data} />
       <input

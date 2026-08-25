@@ -1,15 +1,19 @@
 import { z } from "zod";
 
-/** Latest Gemini Flash with vision (AI Gateway uses provider/model). */
-export const FOOD_PHOTO_MODEL = "google/gemini-3.7-flash";
+/** Fast vision model (AI Gateway uses provider/model). */
+export const FOOD_PHOTO_MODEL = "google/gemini-3.5-flash-lite";
 /** Same model when calling Google Generative AI directly with GEMINI_API_KEY. */
-export const FOOD_PHOTO_GOOGLE_MODEL = "gemini-3.7-flash";
+export const FOOD_PHOTO_GOOGLE_MODEL = "gemini-3.5-flash-lite";
 
 export const ALLOWED_IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 export type AllowedImageMimeType = (typeof ALLOWED_IMAGE_MIME_TYPES)[number];
 
-export const MAX_IMAGE_BYTES = Math.floor(1.5 * 1024 * 1024);
-export const MAX_IMAGE_EDGE = 1280;
+export const MAX_IMAGE_BYTES = 800 * 1024;
+export const MAX_IMAGE_EDGE = 768;
+export const FOOD_PHOTO_JPEG_QUALITY = 0.65;
+export const FOOD_PHOTO_ANALYSIS_TIMEOUT_MS = 20_000;
+export const FOOD_PHOTO_TIMEOUT_MESSAGE =
+  "Die Analyse hat zu lange gedauert. Bitte erneut versuchen.";
 
 export type FoodPhotoConfidence = "high" | "medium" | "low";
 
@@ -38,7 +42,7 @@ export function toPhotoDrafts(items: AnalyzedFoodItem[]): PhotoDraft[] {
   }));
 }
 
-export const MAX_FOOD_PHOTO_ITEMS = 40;
+export const MAX_FOOD_PHOTO_ITEMS = 12;
 export const MAX_FOOD_PHOTO_NAME_LENGTH = 120;
 
 export type FoodPhotoErrorCode =
@@ -65,10 +69,10 @@ export class FoodPhotoError extends Error {
 export const foodPhotoItemSchema = z.object({
   name: z.string().max(MAX_FOOD_PHOTO_NAME_LENGTH),
   estimatedGrams: z.coerce.number(),
-  kcal100: z.coerce.number(),
-  protein100: z.coerce.number(),
-  carbs100: z.coerce.number(),
-  fat100: z.coerce.number(),
+  kcal100: z.coerce.number().optional(),
+  protein100: z.coerce.number().optional(),
+  carbs100: z.coerce.number().optional(),
+  fat100: z.coerce.number().optional(),
   confidence: z.enum(["high", "medium", "low"]).optional(),
 });
 
@@ -82,8 +86,9 @@ export const FOOD_PHOTO_PROMPT = `Analysiere das Foto einer Mahlzeit.
 
 Regeln:
 - Antworte auf Deutsch bei den Lebensmittelnamen (übliche Bezeichnungen).
-- Liste jedes sichtbare Lebensmittel getrennt (z. B. Reis, Hähnchen, Salat — nicht den ganzen Teller als ein Item).
-- Schätze die Portionsgröße in Gramm und die Nährwerte pro 100 g.
+- Liste jedes sichtbare Lebensmittel getrennt (höchstens 12), z. B. Reis, Hähnchen, Salat — nicht den ganzen Teller als ein Item.
+- Schätze die Portionsgröße in Gramm.
+- Nährwerte pro 100 g grob mitschicken (kcal, Protein, Kohlenhydrate, Fett) als Fallback.
 - Erfinde nichts: wenn kein Essen erkennbar oder das Bild unklar ist, gib items als leeres Array zurück.
 - confidence: high bei klar erkennbarem Gericht, medium bei Schätzung, low bei unsicherer Erkennung.`;
 
@@ -133,10 +138,10 @@ export function mapAnalyzedItem(raw: z.infer<typeof foodPhotoItemSchema>): Analy
   return {
     name,
     estimatedGrams,
-    kcal100: round1(clampNonNegative(raw.kcal100)),
-    protein100: round1(clampNonNegative(raw.protein100)),
-    carbs100: round1(clampNonNegative(raw.carbs100)),
-    fat100: round1(clampNonNegative(raw.fat100)),
+    kcal100: round1(clampNonNegative(raw.kcal100 ?? 0)),
+    protein100: round1(clampNonNegative(raw.protein100 ?? 0)),
+    carbs100: round1(clampNonNegative(raw.carbs100 ?? 0)),
+    fat100: round1(clampNonNegative(raw.fat100 ?? 0)),
     confidence: raw.confidence ?? "medium",
   };
 }
@@ -179,8 +184,23 @@ export function fitWithinMax(
   };
 }
 
+export function isFoodPhotoTimeoutError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const name = "name" in error && typeof error.name === "string" ? error.name : "";
+  if (name === "AbortError" || name === "TimeoutError") return true;
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase();
+    if (message.includes("timeout") || message.includes("aborted") || message.includes("abort")) {
+      return true;
+    }
+    if (error.cause) return isFoodPhotoTimeoutError(error.cause);
+  }
+  return false;
+}
+
 export function getFoodPhotoErrorMessage(error: unknown): string {
   if (error instanceof FoodPhotoError) return error.message;
+  if (isFoodPhotoTimeoutError(error)) return FOOD_PHOTO_TIMEOUT_MESSAGE;
   if (error instanceof Error && error.message.trim()) return error.message;
   return "Die Analyse ist fehlgeschlagen. Bitte erneut versuchen.";
 }

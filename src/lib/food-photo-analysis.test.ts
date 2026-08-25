@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  FOOD_PHOTO_TIMEOUT_MESSAGE,
   FoodPhotoError,
+  MAX_IMAGE_EDGE,
   estimateBase64Bytes,
   fitWithinMax,
   foodPhotoAnalysisSchema,
   getFoodPhotoErrorMessage,
+  isFoodPhotoTimeoutError,
   mapAnalyzedItem,
   mapAnalyzedItems,
   scaleMacros,
@@ -104,6 +107,23 @@ describe("mapAnalyzedItem", () => {
         fat100: 1,
       }),
     ).toBeNull();
+  });
+
+  it("accepts items without macros so OFF can fill them", () => {
+    expect(
+      mapAnalyzedItem({
+        name: "Reis",
+        estimatedGrams: 200,
+      }),
+    ).toEqual({
+      name: "Reis",
+      estimatedGrams: 200,
+      kcal100: 0,
+      protein100: 0,
+      carbs100: 0,
+      fat100: 0,
+      confidence: "medium",
+    });
   });
 
   it("clamps negative macros when grams are valid", () => {
@@ -223,7 +243,7 @@ describe("fitWithinMax", () => {
   });
 
   it("scales the longest edge down", () => {
-    expect(fitWithinMax(2560, 1920, 1280)).toEqual({ width: 1280, height: 960 });
+    expect(fitWithinMax(2560, 1920, MAX_IMAGE_EDGE)).toEqual({ width: 768, height: 576 });
   });
 });
 
@@ -231,7 +251,7 @@ describe("foodPhotoAnalysisSchema", () => {
   it("rejects oversized item lists and names", () => {
     expect(() =>
       foodPhotoAnalysisSchema.parse({
-        items: Array.from({ length: 41 }, () => ({
+        items: Array.from({ length: 13 }, () => ({
           name: "Reis",
           estimatedGrams: 100,
           kcal100: 130,
@@ -273,5 +293,8 @@ describe("getFoodPhotoErrorMessage", () => {
     expect(getFoodPhotoErrorMessage("nope")).toBe(
       "Die Analyse ist fehlgeschlagen. Bitte erneut versuchen.",
     );
+    const timeout = Object.assign(new Error("The operation was aborted"), { name: "TimeoutError" });
+    expect(isFoodPhotoTimeoutError(timeout)).toBe(true);
+    expect(getFoodPhotoErrorMessage(timeout)).toBe(FOOD_PHOTO_TIMEOUT_MESSAGE);
   });
 });
