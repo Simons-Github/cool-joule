@@ -95,8 +95,14 @@ export function FoodSearchModal({
         setBarcodeInput(code);
         barcodeLookup.mutate(code);
       });
-    } catch {
-      toast.error("Kamera konnte nicht geöffnet werden. Bitte Berechtigung prüfen.");
+    } catch (error) {
+      stopScan();
+      const name = error instanceof DOMException ? error.name : "";
+      if (name === "NotAllowedError" || name === "SecurityError") {
+        toast.error("Kamerazugriff wurde verweigert. Bitte in Safari unter Einstellungen erlauben.");
+        return;
+      }
+      toast.error("Scannen fehlgeschlagen. Bitte Berechtigung prüfen oder Barcode eintippen.");
     }
   };
 
@@ -325,7 +331,7 @@ export function FoodSearchModal({
 
             <TabsContent value="barcode" className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                EAN/UPC-Barcode eingeben oder mit der Kamera scannen (Chrome/Edge auf HTTPS).
+                EAN/UPC-Barcode eingeben oder mit der Kamera scannen.
               </p>
               <div className="relative">
                 <Barcode className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -355,7 +361,7 @@ export function FoodSearchModal({
                     </>
                   )}
                 </Button>
-                {supported && (
+                {supported ? (
                   <Button
                     type="button"
                     variant="outline"
@@ -364,22 +370,28 @@ export function FoodSearchModal({
                     <Camera className="size-4" />
                     {scanning ? "Stoppen" : "Scannen"}
                   </Button>
-                )}
+                ) : null}
               </div>
 
-              {scanning && (
-                <div className="overflow-hidden rounded-2xl bg-black shadow-lg">
-                  <video
-                    ref={videoRef}
-                    className="aspect-video w-full object-cover"
-                    muted
-                    playsInline
-                  />
+              <div
+                className={
+                  scanning ? "overflow-hidden rounded-2xl bg-black shadow-lg" : "hidden"
+                }
+              >
+                <video
+                  ref={videoRef}
+                  className="aspect-video w-full object-cover"
+                  muted
+                  playsInline
+                  autoPlay
+                  disablePictureInPicture
+                />
+                {scanning ? (
                   <p className="bg-muted px-3 py-2 text-center text-xs text-muted-foreground">
                     Barcode in den Rahmen halten…
                   </p>
-                </div>
-              )}
+                ) : null}
+              </div>
 
               {barcodeLookup.isError && (
                 <p className="text-sm text-destructive">
