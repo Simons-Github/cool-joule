@@ -141,55 +141,67 @@ try {
       throw new Error(`expected /tagebuch, got ${page.url()}`);
     }
 
-  if (await page.getByText("Willkommen bei").isVisible().catch(() => false)) {
-    for (let i = 0; i < 4; i++) await page.getByRole("button", { name: "Weiter" }).click();
-    await page.getByRole("button", { name: "Plan starten" }).click();
-    await page.getByText("Profil gespeichert", { exact: false }).waitFor({ timeout: 10_000 }).catch(() => {});
-  }
+    if (
+      await page
+        .getByText("Willkommen bei")
+        .isVisible()
+        .catch(() => false)
+    ) {
+      for (let i = 0; i < 4; i++) await page.getByRole("button", { name: "Weiter" }).click();
+      await page.getByRole("button", { name: "Plan starten" }).click();
+      await page
+        .getByText("Profil gespeichert", { exact: false })
+        .waitFor({ timeout: 10_000 })
+        .catch(() => {});
+    }
 
-  await page.getByRole("button", { name: "Nahrungsmittel hinzufügen" }).first().click();
-  await page.getByRole("tab", { name: "Foto" }).click();
-  const hint = page.getByText("Open Food Facts");
-  if (!(await hint.first().isVisible())) {
-    throw new Error("Foto-Tab zeigt den Open-Food-Facts-Hinweis nicht");
-  }
+    await page.getByRole("button", { name: "Nahrungsmittel hinzufügen" }).first().click();
+    await page.getByRole("tab", { name: "Foto" }).click();
+    const hint = page.getByText("Open Food Facts");
+    if (!(await hint.first().isVisible())) {
+      throw new Error("Foto-Tab zeigt den Open-Food-Facts-Hinweis nicht");
+    }
 
-  const image = resolve(ROOT, "public/mascot_lunch.png");
-  await page.locator('input[type="file"][accept="image/*"]:not([capture])').setInputFiles(image);
-  await page.getByRole("button", { name: "Analysieren" }).click();
+    const image = resolve(ROOT, "public/mascot_lunch.png");
+    await page.locator('input[type="file"][accept="image/*"]:not([capture])').setInputFiles(image);
+    await page.getByRole("button", { name: "Analysieren" }).click();
 
-  const started = Date.now();
-  await page.waitForFunction(
-    () => {
-      const pending = document.body.innerText.includes("Analysieren…");
-      const drafts = document.body.innerText.includes("Nährwerte aus Open Food Facts, sonst KI-Schätzung");
-      const toastish =
-        document.body.innerText.includes("zu lange gedauert") ||
-        document.body.innerText.includes("fehlgeschlagen") ||
-        document.body.innerText.includes("Kein Essen") ||
-        document.body.innerText.includes("eigenen Key") ||
-        document.body.innerText.includes("API-Key");
-      return !pending && (drafts || toastish || document.body.innerText.includes("Anderes Foto"));
-    },
-    null,
-    { timeout: 25_000 },
-  );
-  const elapsed = Date.now() - started;
-  const body = await page.locator("body").innerText();
-  await page.screenshot({ path: "/tmp/food-photo-verify.png", fullPage: true });
+    const started = Date.now();
+    await page.waitForFunction(
+      () => {
+        const pending = document.body.innerText.includes("Analysieren…");
+        const drafts = document.body.innerText.includes(
+          "Nährwerte aus Open Food Facts, sonst KI-Schätzung",
+        );
+        const toastish =
+          document.body.innerText.includes("zu lange gedauert") ||
+          document.body.innerText.includes("fehlgeschlagen") ||
+          document.body.innerText.includes("Kein Essen") ||
+          document.body.innerText.includes("eigenen Key") ||
+          document.body.innerText.includes("API-Key");
+        return !pending && (drafts || toastish || document.body.innerText.includes("Anderes Foto"));
+      },
+      null,
+      { timeout: 25_000 },
+    );
+    const elapsed = Date.now() - started;
+    const body = await page.locator("body").innerText();
+    await page.screenshot({ path: "/tmp/food-photo-verify.png", fullPage: true });
 
-  const okDrafts = body.includes("Anderes Foto") || body.includes("Ausgewählte hinzufügen");
-  const okError =
-    body.includes("zu lange gedauert") ||
-    body.includes("fehlgeschlagen") ||
-    body.includes("Kein Essen");
-  console.log(JSON.stringify({ elapsedMs: elapsed, okDrafts, okError, snippet: body.slice(0, 800) }));
-  if (!okDrafts && !okError) {
-    throw new Error("Analyse endete weder mit Drafts noch mit Fehlertext");
-  }
-  if (elapsed > 22_000 && !okDrafts) {
-    console.warn("Analyse dauerte lange, aber nicht endlos.");
-  }
+    const okDrafts = body.includes("Anderes Foto") || body.includes("Ausgewählte hinzufügen");
+    const okError =
+      body.includes("zu lange gedauert") ||
+      body.includes("fehlgeschlagen") ||
+      body.includes("Kein Essen");
+    console.log(
+      JSON.stringify({ elapsedMs: elapsed, okDrafts, okError, snippet: body.slice(0, 800) }),
+    );
+    if (!okDrafts && !okError) {
+      throw new Error("Analyse endete weder mit Drafts noch mit Fehlertext");
+    }
+    if (elapsed > 22_000 && !okDrafts) {
+      console.warn("Analyse dauerte lange, aber nicht endlos.");
+    }
   } finally {
     await browser.close();
   }

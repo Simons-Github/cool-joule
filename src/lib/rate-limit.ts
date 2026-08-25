@@ -4,6 +4,10 @@ export const RATE_LIMIT_ACTIONS = {
   food_photo_analyze: { maxCount: 10, windowSeconds: 60 },
   save_gemini_key: { maxCount: 5, windowSeconds: 15 * 60 },
   delete_account: { maxCount: 3, windowSeconds: 15 * 60 },
+  strava_connect: { maxCount: 8, windowSeconds: 15 * 60 },
+  strava_sync: { maxCount: 12, windowSeconds: 15 * 60 },
+  shortcut_token: { maxCount: 8, windowSeconds: 15 * 60 },
+  shortcut_ingest: { maxCount: 30, windowSeconds: 15 * 60 },
 } as const;
 
 export type RateLimitAction = keyof typeof RATE_LIMIT_ACTIONS;

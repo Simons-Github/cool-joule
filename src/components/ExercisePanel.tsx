@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { ignoreStravaActivity } from "@/lib/strava-connect";
+import { getStravaErrorMessage } from "@/lib/strava";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,11 +52,15 @@ export function ExercisePanel({ userId, date }: { userId: string; date: string }
   });
 
   const remove = useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async (item: { id: string; source: string; external_id: string | null }) => {
+      if (item.source === "strava" && item.external_id) {
+        await ignoreStravaActivity({ data: { externalId: item.external_id } });
+        return;
+      }
       const { error } = await supabase
         .from("exercise_logs")
         .delete()
-        .eq("id", id)
+        .eq("id", item.id)
         .eq("user_id", userId);
       if (error) throw error;
     },
@@ -62,7 +68,7 @@ export function ExercisePanel({ userId, date }: { userId: string; date: string }
       toast.success("Aktivität gelöscht");
       queryClient.invalidateQueries({ queryKey: ["exercise_logs"] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: unknown) => toast.error(getStravaErrorMessage(e)),
   });
 
   const items = exercises.data ?? [];
@@ -81,9 +87,18 @@ export function ExercisePanel({ userId, date }: { userId: string; date: string }
         )}
         {items.map((item) => (
           <div key={item.id} className="flex items-center gap-3 py-2.5">
-            <p className="min-w-0 flex-1 truncate text-sm font-medium text-slate-700">
-              {item.name}
-            </p>
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <p className="min-w-0 truncate text-sm font-medium text-slate-700">{item.name}</p>
+              {item.source === "strava" ? (
+                <span className="shrink-0 rounded-full bg-orange-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#FC4C02]">
+                  Strava
+                </span>
+              ) : item.source === "shortcut" ? (
+                <span className="shrink-0 rounded-full bg-sky-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-600">
+                  Watch
+                </span>
+              ) : null}
+            </div>
             <span className="text-sm tabular-nums text-slate-600">
               {Math.round(Number(item.calories))} kcal
             </span>
@@ -91,7 +106,13 @@ export function ExercisePanel({ userId, date }: { userId: string; date: string }
               variant="ghost"
               size="icon"
               aria-label="Aktivität löschen"
-              onClick={() => remove.mutate(item.id)}
+              onClick={() =>
+                remove.mutate({
+                  id: item.id,
+                  source: item.source,
+                  external_id: item.external_id,
+                })
+              }
               className="size-8 rounded-xl text-slate-300 hover:bg-rose-50 hover:text-rose-400"
             >
               <Trash2 className="size-4" />

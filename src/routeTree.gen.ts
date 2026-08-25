@@ -15,6 +15,9 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedFortschrittRouteImport } from './routes/_authenticated/fortschritt'
 import { Route as AuthenticatedProfilRouteImport } from './routes/_authenticated/profil'
 import { Route as AuthenticatedTagebuchRouteImport } from './routes/_authenticated/tagebuch'
+import { Route as StravaCallbackRouteImport } from './routes/strava/callback'
+import { Route as ApiShortcutsExerciseRouteImport } from './routes/api/shortcuts/exercise'
+import { Route as ApiStravaWebhookRouteImport } from './routes/api/strava/webhook'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -46,6 +49,21 @@ const AuthenticatedTagebuchRoute = AuthenticatedTagebuchRouteImport.update({
   path: '/tagebuch',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const StravaCallbackRoute = StravaCallbackRouteImport.update({
+  id: '/strava/callback',
+  path: '/strava/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiShortcutsExerciseRoute = ApiShortcutsExerciseRouteImport.update({
+  id: '/api/shortcuts/exercise',
+  path: '/api/shortcuts/exercise',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStravaWebhookRoute = ApiStravaWebhookRouteImport.update({
+  id: '/api/strava/webhook',
+  path: '/api/strava/webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -53,6 +71,9 @@ export interface FileRoutesByFullPath {
   '/fortschritt': typeof AuthenticatedFortschrittRoute
   '/profil': typeof AuthenticatedProfilRoute
   '/tagebuch': typeof AuthenticatedTagebuchRoute
+  '/strava/callback': typeof StravaCallbackRoute
+  '/api/shortcuts/exercise': typeof ApiShortcutsExerciseRoute
+  '/api/strava/webhook': typeof ApiStravaWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -60,6 +81,9 @@ export interface FileRoutesByTo {
   '/fortschritt': typeof AuthenticatedFortschrittRoute
   '/profil': typeof AuthenticatedProfilRoute
   '/tagebuch': typeof AuthenticatedTagebuchRoute
+  '/strava/callback': typeof StravaCallbackRoute
+  '/api/shortcuts/exercise': typeof ApiShortcutsExerciseRoute
+  '/api/strava/webhook': typeof ApiStravaWebhookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -69,12 +93,31 @@ export interface FileRoutesById {
   '/_authenticated/fortschritt': typeof AuthenticatedFortschrittRoute
   '/_authenticated/profil': typeof AuthenticatedProfilRoute
   '/_authenticated/tagebuch': typeof AuthenticatedTagebuchRoute
+  '/strava/callback': typeof StravaCallbackRoute
+  '/api/shortcuts/exercise': typeof ApiShortcutsExerciseRoute
+  '/api/strava/webhook': typeof ApiStravaWebhookRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/fortschritt' | '/profil' | '/tagebuch'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/fortschritt'
+    | '/profil'
+    | '/tagebuch'
+    | '/strava/callback'
+    | '/api/shortcuts/exercise'
+    | '/api/strava/webhook'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/fortschritt' | '/profil' | '/tagebuch'
+  to:
+    | '/'
+    | '/auth'
+    | '/fortschritt'
+    | '/profil'
+    | '/tagebuch'
+    | '/strava/callback'
+    | '/api/shortcuts/exercise'
+    | '/api/strava/webhook'
   id:
     | '__root__'
     | '/'
@@ -83,12 +126,18 @@ export interface FileRouteTypes {
     | '/_authenticated/fortschritt'
     | '/_authenticated/profil'
     | '/_authenticated/tagebuch'
+    | '/strava/callback'
+    | '/api/shortcuts/exercise'
+    | '/api/strava/webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  StravaCallbackRoute: typeof StravaCallbackRoute
+  ApiShortcutsExerciseRoute: typeof ApiShortcutsExerciseRoute
+  ApiStravaWebhookRoute: typeof ApiStravaWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -135,6 +184,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTagebuchRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/strava/callback': {
+      id: '/strava/callback'
+      path: '/strava/callback'
+      fullPath: '/strava/callback'
+      preLoaderRoute: typeof StravaCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/shortcuts/exercise': {
+      id: '/api/shortcuts/exercise'
+      path: '/api/shortcuts/exercise'
+      fullPath: '/api/shortcuts/exercise'
+      preLoaderRoute: typeof ApiShortcutsExerciseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/strava/webhook': {
+      id: '/api/strava/webhook'
+      path: '/api/strava/webhook'
+      fullPath: '/api/strava/webhook'
+      preLoaderRoute: typeof ApiStravaWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -157,6 +227,9 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  StravaCallbackRoute: StravaCallbackRoute,
+  ApiShortcutsExerciseRoute: ApiShortcutsExerciseRoute,
+  ApiStravaWebhookRoute: ApiStravaWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

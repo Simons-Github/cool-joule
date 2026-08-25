@@ -115,24 +115,96 @@ export type Database = {
           calories: number;
           created_at: string;
           date: string;
+          external_id: string | null;
           id: string;
           name: string;
+          source: string;
           user_id: string;
         };
         Insert: {
           calories?: number;
           created_at?: string;
           date?: string;
+          external_id?: string | null;
           id?: string;
           name: string;
+          source?: string;
           user_id: string;
         };
         Update: {
           calories?: number;
           created_at?: string;
           date?: string;
+          external_id?: string | null;
           id?: string;
           name?: string;
+          source?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      shortcut_tokens: {
+        Row: {
+          created_at: string;
+          token_ciphertext: string;
+          token_hash: string;
+          token_suffix: string;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          token_ciphertext: string;
+          token_hash: string;
+          token_suffix: string;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          token_ciphertext?: string;
+          token_hash?: string;
+          token_suffix?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      strava_connections: {
+        Row: {
+          access_token_ciphertext: string;
+          athlete_id: number;
+          athlete_name: string | null;
+          connected_at: string;
+          ignored_external_ids: string[];
+          last_synced_at: string | null;
+          refresh_token_ciphertext: string;
+          token_expires_at: string;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          access_token_ciphertext: string;
+          athlete_id: number;
+          athlete_name?: string | null;
+          connected_at?: string;
+          ignored_external_ids?: string[];
+          last_synced_at?: string | null;
+          refresh_token_ciphertext: string;
+          token_expires_at: string;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          access_token_ciphertext?: string;
+          athlete_id?: number;
+          athlete_name?: string | null;
+          connected_at?: string;
+          ignored_external_ids?: string[];
+          last_synced_at?: string | null;
+          refresh_token_ciphertext?: string;
+          token_expires_at?: string;
+          updated_at?: string;
           user_id?: string;
         };
         Relationships: [];
