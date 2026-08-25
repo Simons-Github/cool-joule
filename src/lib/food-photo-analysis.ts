@@ -21,6 +21,21 @@ export type AnalyzedFoodItem = {
   confidence: FoodPhotoConfidence;
 };
 
+export type PhotoDraft = AnalyzedFoodItem & {
+  id: string;
+  selected: boolean;
+  grams: string;
+};
+
+export function toPhotoDrafts(items: AnalyzedFoodItem[]): PhotoDraft[] {
+  return items.map((item, index) => ({
+    ...item,
+    id: `${item.name}-${index}`,
+    selected: true,
+    grams: String(item.estimatedGrams),
+  }));
+}
+
 export type FoodPhotoErrorCode =
   | "UNAUTHENTICATED"
   | "INVALID_IMAGE"
@@ -101,9 +116,7 @@ export function round1(value: number): number {
   return Math.round(value * 10) / 10;
 }
 
-export function mapAnalyzedItem(
-  raw: z.infer<typeof foodPhotoItemSchema>,
-): AnalyzedFoodItem | null {
+export function mapAnalyzedItem(raw: z.infer<typeof foodPhotoItemSchema>): AnalyzedFoodItem | null {
   const name = raw.name.trim();
   if (!name) return null;
 
