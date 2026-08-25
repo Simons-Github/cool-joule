@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { GeminiApiKeyCard } from "@/components/GeminiApiKeyCard";
+import { AccountDataCard } from "@/components/AccountDataCard";
 
 export const Route = createFileRoute("/_authenticated/profil")({
   head: () => ({
@@ -139,6 +140,7 @@ function ProfilePage() {
       <p className="mt-1 text-sm text-slate-400">{user.email}</p>
 
       <GeminiApiKeyCard />
+      <AccountDataCard userId={user.id} email={user.email ?? null} />
 
       {profile.isError ? (
         <div className="mt-4">

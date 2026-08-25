@@ -39,4 +39,3 @@ supabase/.temp/
 *.sln
 *.sw?
 .vercel
-.env*

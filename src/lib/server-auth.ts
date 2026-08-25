@@ -1,4 +1,11 @@
-export async function requireAuthenticatedUserId(unauthenticatedMessage: string): Promise<string> {
+export type AuthenticatedUser = {
+  id: string;
+  email: string | null;
+};
+
+export async function requireAuthenticatedUser(
+  unauthenticatedMessage: string,
+): Promise<AuthenticatedUser> {
   const { getRequestHeader } = await import("@tanstack/react-start/server");
   const { supabase } = await import("@/integrations/supabase/client");
 
@@ -16,7 +23,12 @@ export async function requireAuthenticatedUserId(unauthenticatedMessage: string)
     throw new Error(unauthenticatedMessage);
   }
 
-  return userData.user.id;
+  return { id: userData.user.id, email: userData.user.email ?? null };
+}
+
+export async function requireAuthenticatedUserId(unauthenticatedMessage: string): Promise<string> {
+  const user = await requireAuthenticatedUser(unauthenticatedMessage);
+  return user.id;
 }
 
 export function logServerError(error: unknown): void {

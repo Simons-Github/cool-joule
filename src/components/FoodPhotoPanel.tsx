@@ -140,6 +140,15 @@ function ProfileKeyLink() {
 function FoodPhotoQuotaHint({ quota }: { quota: FoodPhotoQuota | undefined }) {
   if (!quota?.limited) return null;
 
+  if (quota.requiresOwnKey) {
+    return (
+      <p className="text-sm text-rose-600">
+        Die App-Analyse ist nur für den Betreiber verfügbar. Hinterlege einen eigenen Key im{" "}
+        <ProfileKeyLink />.
+      </p>
+    );
+  }
+
   if (quota.remaining <= 0) {
     return (
       <p className="text-sm text-rose-600">

@@ -209,6 +209,27 @@ export type Database = {
         };
         Relationships: [];
       };
+      server_rate_limits: {
+        Row: {
+          action: string;
+          request_count: number;
+          user_id: string;
+          window_started_at: string;
+        };
+        Insert: {
+          action: string;
+          request_count?: number;
+          user_id: string;
+          window_started_at?: string;
+        };
+        Update: {
+          action?: string;
+          request_count?: number;
+          user_id?: string;
+          window_started_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -217,6 +238,15 @@ export type Database = {
       claim_food_photo_server_usage: {
         Args: { p_user_id: string };
         Returns: string | null;
+      };
+      claim_server_rate_limit: {
+        Args: {
+          p_user_id: string;
+          p_action: string;
+          p_max_count: number;
+          p_window_seconds: number;
+        };
+        Returns: boolean;
       };
     };
     Enums: {

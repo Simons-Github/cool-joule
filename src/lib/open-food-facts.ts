@@ -74,7 +74,8 @@ export type OpenFoodFactsErrorCode =
   | "INCOMPLETE_PRODUCT"
   | "NETWORK"
   | "HTTP"
-  | "PARSE";
+  | "PARSE"
+  | "RATE_LIMITED";
 
 export class OpenFoodFactsError extends Error {
   readonly code: OpenFoodFactsErrorCode;

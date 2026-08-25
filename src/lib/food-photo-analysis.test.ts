@@ -3,6 +3,7 @@ import {
   FoodPhotoError,
   estimateBase64Bytes,
   fitWithinMax,
+  foodPhotoAnalysisSchema,
   getFoodPhotoErrorMessage,
   mapAnalyzedItem,
   mapAnalyzedItems,
@@ -223,6 +224,38 @@ describe("fitWithinMax", () => {
 
   it("scales the longest edge down", () => {
     expect(fitWithinMax(2560, 1920, 1280)).toEqual({ width: 1280, height: 960 });
+  });
+});
+
+describe("foodPhotoAnalysisSchema", () => {
+  it("rejects oversized item lists and names", () => {
+    expect(() =>
+      foodPhotoAnalysisSchema.parse({
+        items: Array.from({ length: 41 }, () => ({
+          name: "Reis",
+          estimatedGrams: 100,
+          kcal100: 130,
+          protein100: 2,
+          carbs100: 28,
+          fat100: 0.3,
+        })),
+      }),
+    ).toThrow();
+
+    expect(() =>
+      foodPhotoAnalysisSchema.parse({
+        items: [
+          {
+            name: "x".repeat(121),
+            estimatedGrams: 100,
+            kcal100: 130,
+            protein100: 2,
+            carbs100: 28,
+            fat100: 0.3,
+          },
+        ],
+      }),
+    ).toThrow();
   });
 });
 

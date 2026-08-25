@@ -59,8 +59,8 @@ export function GeminiApiKeyCard() {
           >
             Google AI Studio
           </a>
-          . Er wird verschlüsselt gespeichert und danach nicht mehr angezeigt. Ohne eigenen Key
-          nutzt Cool Joule den App-Key — begrenzt auf 1 Fotoanalyse pro 24 Stunden.
+          . Er wird verschlüsselt gespeichert und danach nicht mehr angezeigt. Der App-Key steht nur
+          dem Betreiber zur Verfügung (1 Analyse / 24 Stunden).
         </p>
       </div>
 

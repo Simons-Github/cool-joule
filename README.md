@@ -41,18 +41,19 @@ Deutschsprachiges Ernährungstagebuch zum Tracken von Kalorien, Makros und Gewic
 
 **Cool Joule** hilft dabei, Mahlzeiten zu erfassen, Tagesziele für Kalorien und Makros im Blick zu behalten und den Gewichtsverlauf über Zeit zu verfolgen.
 
-Beim ersten Login berechnet ein Onboarding-Wizard (Mifflin-St Jeor) individuelle Kalorien- und Makroziele. Lebensmittel lassen sich per Textsuche oder Barcode aus der **Open Food Facts**-Datenbank importieren — oder als eigene Einträge anlegen.
+Beim ersten Login berechnet ein Onboarding-Wizard (Mifflin-St Jeor) individuelle Kalorien- und Makroziele. Lebensmittel lassen sich per Textsuche oder Barcode aus der **Open Food Facts**-Datenbank importieren, fotografieren (KI-Schätzung) oder als eigene Einträge anlegen.
 
 ### Highlights
 
-- Authentifizierung via **Supabase** (E-Mail/Passwort + Google OAuth)
+- Authentifizierung via **Supabase** (E-Mail/Passwort + Google OAuth, Passwort-Reset)
 - Tages-Tagebuch mit Datumsnavigation und Makro-Übersicht
-- Lebensmittel-Suche, **Barcode-Lookup** und Kamera-Scan (BarcodeDetector)
+- Lebensmittel-Suche und Barcode-Lookup (Server Functions) plus Kamera-Scan
+- KI-Fotoanalyse (Gemini) — eigener API-Key im Profil; App-Key nur für allowlistete Owner
 - Gewichtstracking mit Recharts-Diagramm (7 / 30 / 90 Tage)
-- Dark/Light Mode, mobile-first Layout
+- Mobile-first Layout
 - Row Level Security — Nutzer sehen nur eigene Daten
-- Unit-Tests für die Open-Food-Facts-Integration
-- GitHub Actions CI (`lint`, `test`, `build`)
+- Datenexport und Konto löschen
+- Unit-Tests (Vitest) und GitHub Actions CI (`lint`, `test`, `build`)
 
 ---
 
@@ -63,10 +64,12 @@ Beim ersten Login berechnet ein Onboarding-Wizard (Mifflin-St Jeor) individuelle
 | Frontend | React 19, TypeScript, TanStack Router/Start/Query |
 | Styling | Tailwind CSS 4, shadcn/ui, Lucide |
 | Charts | Recharts |
-| Backend | Supabase (PostgreSQL, Auth, RLS) |
+| Backend | Supabase (PostgreSQL, Auth, RLS) + TanStack Start Server Functions |
+| KI | Google Gemini (User-Key oder Owner-App-Key / AI Gateway) |
 | Externe API | Open Food Facts |
 | Tooling | Vite, Vitest, ESLint, Prettier |
 | CI | GitHub Actions |
+| Hosting | Vercel |
 
 ---
 
@@ -74,11 +77,12 @@ Beim ersten Login berechnet ein Onboarding-Wizard (Mifflin-St Jeor) individuelle
 
 ```
 Browser (React)
-    ├── Supabase JS Client  →  Auth + PostgreSQL (RLS)
-    └── open-food-facts.ts  →  Open Food Facts API
+    ├── Supabase JS Client     →  Auth + PostgreSQL (RLS)
+    └── Server Functions       →  Fotoanalyse, Quota, User-Gemini-Keys,
+                                  OFF-Suche/Barcode, Konto löschen
 ```
 
-Es gibt **kein eigenes REST-Backend**: Business-Logik (z. B. TDEE-Berechnung) läuft im Frontend, Persistenz und Zugriffskontrolle in Supabase. Die Open-Food-Facts-Anbindung ist in ein testbares Modul ausgelagert (`src/lib/open-food-facts.ts`).
+TDEE-Berechnung und Tagebuch-CRUD laufen im Client gegen Supabase (RLS). Kostenpflichtige oder geheime Operationen (Gemini, Secret-Key, Open-Food-Facts-User-Agent) laufen in Server Functions. JWT wird per `Authorization: Bearer` angehängt und serverseitig mit `auth.getUser` geprüft.
 
 ---
 
@@ -87,13 +91,16 @@ Es gibt **kein eigenes REST-Backend**: Business-Logik (z. B. TDEE-Berechnung) l�
 | Feature | Status |
 | ------- | ------ |
 | Login / Registrierung (E-Mail, Google) | ✅ |
+| Passwort zurücksetzen | ✅ |
 | Multi-Step-Onboarding mit TDEE & Makros | ✅ |
 | Tagebuch (Frühstück, Mittag, Abend, Snacks) | ✅ |
 | Open Food Facts Textsuche | ✅ |
 | Barcode-Lookup + Kamera-Scan | ✅ |
+| KI-Fotoanalyse | ✅ |
 | Eigene Lebensmittel anlegen | ✅ |
 | Gewichtsverlauf & Chart | ✅ |
 | Profil & Ziele bearbeiten | ✅ |
+| Datenexport / Konto löschen | ✅ |
 | Exercise-Kalorien im Tagebuch | ⏳ Geplant |
 
 ---
@@ -110,25 +117,40 @@ npm install
 npm run dev
 ```
 
-`.env` befüllen:
+`.env` aus [`.env.example`](.env.example) befüllen. Mindestens:
 
 ```env
 VITE_SUPABASE_URL=https://<project-id>.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=<publishable-key>
 ```
 
+Für Fotoanalyse, verschlüsselte User-Keys und Konto-Löschen zusätzlich (ohne `VITE_`-Prefix):
+
+```env
+SUPABASE_SECRET_KEY=<secret-key>
+USER_SECRETS_ENCRYPTION_KEY=<32-byte-base64>
+GEMINI_API_KEY=<optional>
+AI_GATEWAY_API_KEY=<optional>
+FOOD_PHOTO_USE_AI_GATEWAY=   # nur "true", wenn OIDC-Gateway bewusst genutzt wird
+FOOD_PHOTO_APP_KEY_USER_IDS=<deine-user-uuid>
+FOOD_PHOTO_APP_KEY_EMAILS=<deine-login-email>
+```
+
+`process.env.VERCEL` allein gilt **nicht** als Gateway-Auth. Ohne Eintrag in der Owner-Allowlist brauchen Nutzer einen eigenen Gemini-Key im Profil. Leere Allowlists sind fail-closed (niemand bekommt den App-Key).
+
 ### Supabase einrichten
 
 1. Migrationen anwenden (`supabase/migrations/`) oder per Supabase CLI deployen
 2. **Authentication → Providers → Google** aktivieren (optional)
-3. **URL Configuration:** Redirect-URLs setzen:
+3. **Authentication → Providers → Email:** [Leaked password protection](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection) einschalten
+4. **URL Configuration:** Redirect-URLs setzen (Login, OAuth, Passwort-Recovery):
    - `http://localhost:5173/auth`
    - `https://<production-domain>/auth`
 
 ### Scripts
 
 | Befehl | Beschreibung |
-| ------ | ------------ |
+| ------- | ----------- |
 | `npm run dev` | Dev-Server starten |
 | `npm test` | Vitest Unit-Tests |
 | `npm run lint` | ESLint + Prettier |
@@ -144,8 +166,11 @@ VITE_SUPABASE_PUBLISHABLE_KEY=<publishable-key>
 | `food_logs` | Tägliche Mahlzeit-Einträge |
 | `weight_logs` | Gewicht pro Tag |
 | `custom_foods` | Nutzerdefinierte Lebensmittel |
+| `user_gemini_keys` | Verschlüsselte User-Gemini-Keys (nur service_role) |
+| `food_photo_server_usage` | 1/24h-Quota für den Owner-App-Key (nur service_role) |
+| `server_rate_limits` | Rate-Limits für Server Functions (nur service_role) |
 
-Alle Tabellen haben **Row Level Security** (`auth.uid()` = eigener Datensatz).
+Nutzerdaten-Tabellen haben **Row Level Security** (`auth.uid()` = eigener Datensatz). Key-/Quota-/Rate-Limit-Tabellen sind dem Client entzogen.
 
 ---
 
@@ -163,9 +188,9 @@ Bei Push und Pull Request auf `main` läuft [GitHub Actions](.github/workflows/c
 src/
 ├── routes/           # TanStack Router (Seiten)
 ├── components/       # UI & Feature-Komponenten
-├── lib/              # nutrition.ts, open-food-facts.ts, app-config.ts
-├── integrations/     # Supabase Client & Types
-└── hooks/            # Theme, Barcode-Scanner, …
+├── lib/              # nutrition, OFF, Fotoanalyse, Auth-Helfer
+├── integrations/     # Supabase Client, Admin-Client & Types
+└── hooks/            # Profile, Barcode-Scanner, …
 supabase/migrations/  # SQL-Schema + RLS
 ```
 
@@ -173,7 +198,17 @@ supabase/migrations/  # SQL-Schema + RLS
 
 ## Deployment
 
-Die App wird automatisiert über Vercel deployt und unter [cool-joule.vercel.app](https://cool-joule.vercel.app) gehostet.
+Die App wird über Vercel unter [cool-joule.vercel.app](https://cool-joule.vercel.app) gehostet.
+
+### Production-Checkliste
+
+- [ ] Dieselben `VITE_SUPABASE_*`-Werte wie im Supabase-Projekt
+- [ ] `SUPABASE_SECRET_KEY` und `USER_SECRETS_ENCRYPTION_KEY` in Vercel (Production **und** Preview)
+- [ ] `GEMINI_API_KEY` und/oder `AI_GATEWAY_API_KEY` (oder `FOOD_PHOTO_USE_AI_GATEWAY=true` bei bewusst aktiviertem OIDC-Gateway)
+- [ ] `FOOD_PHOTO_APP_KEY_USER_IDS` / `FOOD_PHOTO_APP_KEY_EMAILS` auf den Betreiber-Account
+- [ ] Auth-Redirects inkl. `/auth` für Recovery
+- [ ] Leaked-Password-Protection im Supabase-Dashboard
+- [ ] Migrationen auf dem Cool-Joule-Projekt angewendet
 
 ---
 

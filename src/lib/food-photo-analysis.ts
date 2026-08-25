@@ -38,6 +38,9 @@ export function toPhotoDrafts(items: AnalyzedFoodItem[]): PhotoDraft[] {
   }));
 }
 
+export const MAX_FOOD_PHOTO_ITEMS = 40;
+export const MAX_FOOD_PHOTO_NAME_LENGTH = 120;
+
 export type FoodPhotoErrorCode =
   | "UNAUTHENTICATED"
   | "INVALID_IMAGE"
@@ -45,6 +48,7 @@ export type FoodPhotoErrorCode =
   | "UNSUPPORTED_TYPE"
   | "NO_FOOD"
   | "RATE_LIMITED"
+  | "REQUIRES_OWN_KEY"
   | "ANALYSIS_FAILED";
 
 export class FoodPhotoError extends Error {
@@ -59,7 +63,7 @@ export class FoodPhotoError extends Error {
 }
 
 export const foodPhotoItemSchema = z.object({
-  name: z.string(),
+  name: z.string().max(MAX_FOOD_PHOTO_NAME_LENGTH),
   estimatedGrams: z.coerce.number(),
   kcal100: z.coerce.number(),
   protein100: z.coerce.number(),
@@ -69,7 +73,7 @@ export const foodPhotoItemSchema = z.object({
 });
 
 export const foodPhotoAnalysisSchema = z.object({
-  items: z.array(foodPhotoItemSchema),
+  items: z.array(foodPhotoItemSchema).max(MAX_FOOD_PHOTO_ITEMS),
 });
 
 export type FoodPhotoAnalysisOutput = z.infer<typeof foodPhotoAnalysisSchema>;

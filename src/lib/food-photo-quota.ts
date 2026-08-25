@@ -9,6 +9,7 @@ export type FoodPhotoQuota =
       limited: true;
       remaining: number;
       resetsAt: string | null;
+      requiresOwnKey?: boolean;
     };
 
 export function serverKeyQuotaResetsAt(lastUsedAt: Date): Date {
@@ -34,6 +35,10 @@ export function toLimitedFoodPhotoQuota(
   };
 }
 
+export function ownKeyRequiredQuota(): Extract<FoodPhotoQuota, { limited: true }> {
+  return { limited: true, remaining: 0, resetsAt: null, requiresOwnKey: true };
+}
+
 export function formatQuotaReset(iso: string): string {
   return new Intl.DateTimeFormat("de-DE", {
     timeZone: "Europe/Berlin",
@@ -49,6 +54,9 @@ export function getServerKeyQuotaExceededMessage(resetsAt: Date | string): strin
   const iso = typeof resetsAt === "string" ? resetsAt : resetsAt.toISOString();
   return `Ohne eigenen API-Key ist nur 1 Fotoanalyse pro 24 Stunden möglich. Nächste Analyse ab ${formatQuotaReset(iso)}. Hinterlege im Profil einen eigenen Gemini-Key für unbegrenzte Analysen.`;
 }
+
+export const OWN_KEY_REQUIRED_MESSAGE =
+  "Die Fotoanalyse ohne eigenen API-Key ist nur für den Betreiber verfügbar. Hinterlege im Profil einen eigenen Gemini-Key.";
 
 export function isFoodPhotoQuotaBlocked(quota: FoodPhotoQuota | undefined): boolean {
   return Boolean(quota?.limited && quota.remaining <= 0);

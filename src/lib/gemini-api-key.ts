@@ -4,7 +4,12 @@ export type GeminiKeyStatus = {
 };
 
 export type GeminiKeyErrorCode =
-  "UNAUTHENTICATED" | "INVALID_KEY" | "VERIFY_FAILED" | "NOT_CONFIGURED" | "STORAGE_FAILED";
+  | "UNAUTHENTICATED"
+  | "INVALID_KEY"
+  | "VERIFY_FAILED"
+  | "NOT_CONFIGURED"
+  | "STORAGE_FAILED"
+  | "RATE_LIMITED";
 
 export class GeminiKeyError extends Error {
   readonly code: GeminiKeyErrorCode;
