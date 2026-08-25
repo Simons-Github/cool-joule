@@ -1,8 +1,9 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { Camera, ImagePlus, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { analyzeFoodPhoto } from "@/lib/analyze-food-photo";
+import { analyzeFoodPhoto, getFoodPhotoQuota } from "@/lib/analyze-food-photo";
 import { compressFoodPhoto } from "@/lib/compress-food-photo";
 import {
   getFoodPhotoErrorMessage,
@@ -10,6 +11,12 @@ import {
   type AnalyzedFoodItem,
   type PhotoDraft,
 } from "@/lib/food-photo-analysis";
+import {
+  foodPhotoQuotaQueryKey,
+  formatQuotaReset,
+  isFoodPhotoQuotaBlocked,
+  type FoodPhotoQuota,
+} from "@/lib/food-photo-quota";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -122,11 +129,40 @@ export function FoodPhotoResults({
   );
 }
 
+function ProfileKeyLink() {
+  return (
+    <Link to="/profil" className="font-medium text-rose-600 underline-offset-2 hover:underline">
+      Profil
+    </Link>
+  );
+}
+
+function FoodPhotoQuotaHint({ quota }: { quota: FoodPhotoQuota | undefined }) {
+  if (!quota?.limited) return null;
+
+  if (quota.remaining <= 0) {
+    return (
+      <p className="text-sm text-rose-600">
+        Kostenloses Kontingent aufgebraucht.
+        {quota.resetsAt ? ` Nächste Analyse ab ${formatQuotaReset(quota.resetsAt)}.` : ""} Oder
+        hinterlege einen Key im <ProfileKeyLink />.
+      </p>
+    );
+  }
+
+  return (
+    <p className="text-sm text-muted-foreground">
+      Ohne eigenen API-Key: 1 Analyse pro 24 Stunden. Unbegrenzt mit Key im <ProfileKeyLink />.
+    </p>
+  );
+}
+
 export function FoodPhotoCapture({
   onAnalyzed,
 }: {
   onAnalyzed: (items: AnalyzedFoodItem[]) => void;
 }) {
+  const queryClient = useQueryClient();
   const cameraInputId = useId();
   const galleryInputId = useId();
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -134,6 +170,13 @@ export function FoodPhotoCapture({
   const previewUrlRef = useRef<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [payload, setPayload] = useState<{ mimeType: "image/jpeg"; base64: string } | null>(null);
+
+  const quota = useQuery({
+    queryKey: foodPhotoQuotaQueryKey,
+    queryFn: () => getFoodPhotoQuota(),
+    staleTime: 30_000,
+  });
+  const quotaBlocked = isFoodPhotoQuotaBlocked(quota.data);
 
   const revokePreview = () => {
     if (previewUrlRef.current) {
@@ -172,6 +215,9 @@ export function FoodPhotoCapture({
       onAnalyzed(items);
     },
     onError: (error) => toast.error(getFoodPhotoErrorMessage(error)),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: foodPhotoQuotaQueryKey });
+    },
   });
 
   return (
@@ -179,6 +225,7 @@ export function FoodPhotoCapture({
       <p className="text-sm text-muted-foreground">
         Fotografiere dein Essen oder lade ein Bild hoch. Die Nährwerte sind eine Schätzung.
       </p>
+      <FoodPhotoQuotaHint quota={quota.data} />
       <input
         id={cameraInputId}
         ref={cameraRef}
@@ -230,13 +277,15 @@ export function FoodPhotoCapture({
       <Button
         type="button"
         className="w-full"
-        disabled={!payload || analyze.isPending}
+        disabled={!payload || analyze.isPending || quotaBlocked}
         onClick={() => analyze.mutate()}
       >
         {analyze.isPending ? (
           <>
             <Loader2 className="size-4 animate-spin" /> Analysieren…
           </>
+        ) : quotaBlocked ? (
+          "Kontingent aufgebraucht"
         ) : (
           "Analysieren"
         )}

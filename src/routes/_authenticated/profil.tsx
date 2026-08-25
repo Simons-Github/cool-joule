@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { GeminiApiKeyCard } from "@/components/GeminiApiKeyCard";
 
 export const Route = createFileRoute("/_authenticated/profil")({
   head: () => ({
@@ -136,6 +137,8 @@ function ProfilePage() {
     <AppShell>
       <h1 className="text-2xl font-bold tracking-tight text-slate-800">Profil & Ziele</h1>
       <p className="mt-1 text-sm text-slate-400">{user.email}</p>
+
+      <GeminiApiKeyCard />
 
       {profile.isError ? (
         <div className="mt-4">

@@ -44,6 +44,21 @@ export type Database = {
         };
         Relationships: [];
       };
+      food_photo_server_usage: {
+        Row: {
+          last_used_at: string;
+          user_id: string;
+        };
+        Insert: {
+          last_used_at?: string;
+          user_id: string;
+        };
+        Update: {
+          last_used_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       food_logs: {
         Row: {
           brand: string | null;
@@ -85,6 +100,27 @@ export type Database = {
           meal_type?: string;
           protein?: number;
           serving_size_g?: number;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      user_gemini_keys: {
+        Row: {
+          ciphertext: string;
+          key_suffix: string;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          ciphertext: string;
+          key_suffix: string;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          ciphertext?: string;
+          key_suffix?: string;
+          updated_at?: string;
           user_id?: string;
         };
         Relationships: [];
@@ -178,7 +214,10 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      claim_food_photo_server_usage: {
+        Args: { p_user_id: string };
+        Returns: string | null;
+      };
     };
     Enums: {
       [_ in never]: never;

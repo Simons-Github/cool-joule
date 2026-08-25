@@ -231,6 +231,11 @@ describe("getFoodPhotoErrorMessage", () => {
     expect(getFoodPhotoErrorMessage(new FoodPhotoError("NO_FOOD", "Kein Essen erkennbar."))).toBe(
       "Kein Essen erkennbar.",
     );
+    expect(
+      getFoodPhotoErrorMessage(
+        new FoodPhotoError("RATE_LIMITED", "Nur 1 Fotoanalyse pro 24 Stunden."),
+      ),
+    ).toBe("Nur 1 Fotoanalyse pro 24 Stunden.");
     expect(getFoodPhotoErrorMessage(new Error("Netzwerk weg"))).toBe("Netzwerk weg");
     expect(getFoodPhotoErrorMessage("nope")).toBe(
       "Die Analyse ist fehlgeschlagen. Bitte erneut versuchen.",
