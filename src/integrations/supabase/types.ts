@@ -47,15 +47,21 @@ export type Database = {
       food_photo_server_usage: {
         Row: {
           last_used_at: string;
+          use_count: number;
           user_id: string;
+          window_started_at: string;
         };
         Insert: {
           last_used_at?: string;
+          use_count?: number;
           user_id: string;
+          window_started_at?: string;
         };
         Update: {
           last_used_at?: string;
+          use_count?: number;
           user_id?: string;
+          window_started_at?: string;
         };
         Relationships: [];
       };

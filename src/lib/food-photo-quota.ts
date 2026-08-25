@@ -1,6 +1,6 @@
 export const foodPhotoQuotaQueryKey = ["food-photo-quota"] as const;
 
-export const SERVER_KEY_PHOTO_LIMIT = 1;
+export const SERVER_KEY_PHOTO_LIMIT = 5;
 export const SERVER_KEY_PHOTO_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export type FoodPhotoQuota =
@@ -12,26 +12,45 @@ export type FoodPhotoQuota =
       requiresOwnKey?: boolean;
     };
 
-export function serverKeyQuotaResetsAt(lastUsedAt: Date): Date {
-  return new Date(lastUsedAt.getTime() + SERVER_KEY_PHOTO_WINDOW_MS);
+export type ServerKeyPhotoUsage = {
+  windowStartedAt: Date;
+  useCount: number;
+};
+
+export function serverKeyQuotaResetsAt(windowStartedAt: Date): Date {
+  return new Date(windowStartedAt.getTime() + SERVER_KEY_PHOTO_WINDOW_MS);
 }
 
-export function isServerKeyQuotaAvailable(lastUsedAt: Date | null, now = new Date()): boolean {
-  if (!lastUsedAt) return true;
-  return now.getTime() >= serverKeyQuotaResetsAt(lastUsedAt).getTime();
+export function remainingServerKeyQuota(
+  usage: ServerKeyPhotoUsage | null,
+  now = new Date(),
+): number {
+  if (!usage) return SERVER_KEY_PHOTO_LIMIT;
+  if (now.getTime() >= serverKeyQuotaResetsAt(usage.windowStartedAt).getTime()) {
+    return SERVER_KEY_PHOTO_LIMIT;
+  }
+  return Math.max(0, SERVER_KEY_PHOTO_LIMIT - usage.useCount);
+}
+
+export function isServerKeyQuotaAvailable(
+  usage: ServerKeyPhotoUsage | null,
+  now = new Date(),
+): boolean {
+  return remainingServerKeyQuota(usage, now) > 0;
 }
 
 export function toLimitedFoodPhotoQuota(
-  lastUsedAt: Date | null,
+  usage: ServerKeyPhotoUsage | null,
   now = new Date(),
 ): Extract<FoodPhotoQuota, { limited: true }> {
-  if (!lastUsedAt || isServerKeyQuotaAvailable(lastUsedAt, now)) {
-    return { limited: true, remaining: SERVER_KEY_PHOTO_LIMIT, resetsAt: null };
+  const remaining = remainingServerKeyQuota(usage, now);
+  if (remaining > 0) {
+    return { limited: true, remaining, resetsAt: null };
   }
   return {
     limited: true,
     remaining: 0,
-    resetsAt: serverKeyQuotaResetsAt(lastUsedAt).toISOString(),
+    resetsAt: serverKeyQuotaResetsAt(usage!.windowStartedAt).toISOString(),
   };
 }
 
@@ -52,11 +71,11 @@ export function formatQuotaReset(iso: string): string {
 
 export function getServerKeyQuotaExceededMessage(resetsAt: Date | string): string {
   const iso = typeof resetsAt === "string" ? resetsAt : resetsAt.toISOString();
-  return `Ohne eigenen API-Key ist nur 1 Fotoanalyse pro 24 Stunden möglich. Nächste Analyse ab ${formatQuotaReset(iso)}. Hinterlege im Profil einen eigenen Gemini-Key für unbegrenzte Analysen.`;
+  return `Ohne eigenen API-Key sind nur ${SERVER_KEY_PHOTO_LIMIT} Fotoanalysen pro 24 Stunden möglich. Nächste Analyse ab ${formatQuotaReset(iso)}. Hinterlege im Profil einen eigenen Gemini-Key für unbegrenzte Analysen.`;
 }
 
 export const OWN_KEY_REQUIRED_MESSAGE =
-  "Die Fotoanalyse ohne eigenen API-Key ist nur für den Betreiber verfügbar. Hinterlege im Profil einen eigenen Gemini-Key.";
+  "Die Fotoanalyse ohne eigenen API-Key ist nur für freigeschaltete Accounts verfügbar. Hinterlege im Profil einen eigenen Gemini-Key.";
 
 export function isFoodPhotoQuotaBlocked(quota: FoodPhotoQuota | undefined): boolean {
   return Boolean(quota?.limited && quota.remaining <= 0);
