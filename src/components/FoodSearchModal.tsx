@@ -12,6 +12,9 @@ import {
   type FoodItem,
 } from "@/lib/open-food-facts";
 import { useBarcodeScanner } from "@/hooks/useBarcodeScanner";
+import { FoodPhotoCapture, FoodPhotoResults } from "@/components/FoodPhotoPanel";
+import { useFoodPhotoLog } from "@/hooks/useFoodPhotoLog";
+import { toPhotoDrafts, type PhotoDraft } from "@/lib/food-photo-analysis";
 import {
   Dialog,
   DialogContent,
@@ -52,8 +55,18 @@ export function FoodSearchModal({
   const debounced = useDebounced(query);
   const [selected, setSelected] = useState<FoodItem | null>(null);
   const [grams, setGrams] = useState("100");
+  const [photoDrafts, setPhotoDrafts] = useState<PhotoDraft[] | null>(null);
   const queryClient = useQueryClient();
   const { videoRef, scanning, supported, startScan, stopScan } = useBarcodeScanner();
+  const addPhotoLogs = useFoodPhotoLog({
+    userId,
+    date,
+    mealType,
+    onSuccess: () => {
+      setPhotoDrafts(null);
+      onOpenChange(false);
+    },
+  });
 
   const mealLabel = MEALS.find((m) => m.key === mealType)?.label ?? "";
 
@@ -99,7 +112,9 @@ export function FoodSearchModal({
       stopScan();
       const name = error instanceof DOMException ? error.name : "";
       if (name === "NotAllowedError" || name === "SecurityError") {
-        toast.error("Kamerazugriff wurde verweigert. Bitte in Safari unter Einstellungen erlauben.");
+        toast.error(
+          "Kamerazugriff wurde verweigert. Bitte in Safari unter Einstellungen erlauben.",
+        );
         return;
       }
       toast.error("Scannen fehlgeschlagen. Bitte Berechtigung prüfen oder Barcode eintippen.");
@@ -107,7 +122,11 @@ export function FoodSearchModal({
   };
 
   useEffect(() => {
-    if (!open) stopScan();
+    if (!open) {
+      stopScan();
+      setPhotoDrafts(null);
+      setSelected(null);
+    }
   }, [open, stopScan]);
 
   const customFoods = useQuery({
@@ -201,7 +220,8 @@ export function FoodSearchModal({
         <DialogHeader>
           <DialogTitle>Nahrungsmittel hinzufügen — {mealLabel}</DialogTitle>
           <DialogDescription>
-            Suche in der Open-Food-Facts-Datenbank oder lege ein eigenes Lebensmittel an.
+            Suche, scanne einen Barcode, fotografiere dein Essen oder lege ein eigenes Lebensmittel
+            an.
           </DialogDescription>
         </DialogHeader>
 
@@ -270,13 +290,32 @@ export function FoodSearchModal({
               </Button>
             </div>
           </div>
+        ) : photoDrafts && photoDrafts.length > 0 ? (
+          <FoodPhotoResults
+            drafts={photoDrafts}
+            onChange={(next) => setPhotoDrafts(next.length > 0 ? next : null)}
+            onReset={() => setPhotoDrafts(null)}
+            onAdd={() => addPhotoLogs.mutate(photoDrafts)}
+            adding={addPhotoLogs.isPending}
+          />
         ) : (
           <Tabs defaultValue="search" onValueChange={() => stopScan()}>
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="search">Suche</TabsTrigger>
-              <TabsTrigger value="barcode">Barcode</TabsTrigger>
-              <TabsTrigger value="own">Eigene</TabsTrigger>
-              <TabsTrigger value="new">Neu anlegen</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger value="search" className="px-1 text-xs sm:text-sm">
+                Suche
+              </TabsTrigger>
+              <TabsTrigger value="photo" className="px-1 text-xs sm:text-sm">
+                Foto
+              </TabsTrigger>
+              <TabsTrigger value="barcode" className="px-1 text-xs sm:text-sm">
+                Barcode
+              </TabsTrigger>
+              <TabsTrigger value="own" className="px-1 text-xs sm:text-sm">
+                Eigene
+              </TabsTrigger>
+              <TabsTrigger value="new" className="px-1 text-xs sm:text-sm">
+                Neu
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="search" className="space-y-3">
@@ -329,6 +368,10 @@ export function FoodSearchModal({
               </ScrollArea>
             </TabsContent>
 
+            <TabsContent value="photo">
+              <FoodPhotoCapture onAnalyzed={(items) => setPhotoDrafts(toPhotoDrafts(items))} />
+            </TabsContent>
+
             <TabsContent value="barcode" className="space-y-3">
               <p className="text-sm text-muted-foreground">
                 EAN/UPC-Barcode eingeben oder mit der Kamera scannen.
@@ -374,9 +417,7 @@ export function FoodSearchModal({
               </div>
 
               <div
-                className={
-                  scanning ? "overflow-hidden rounded-2xl bg-black shadow-lg" : "hidden"
-                }
+                className={scanning ? "overflow-hidden rounded-2xl bg-black shadow-lg" : "hidden"}
               >
                 <video
                   ref={videoRef}
