@@ -28,6 +28,8 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { GeminiApiKeyCard } from "@/components/GeminiApiKeyCard";
+import { ShortcutWebhookCard } from "@/components/ShortcutWebhookCard";
+import { StravaConnectCard } from "@/components/StravaConnectCard";
 import { AccountDataCard } from "@/components/AccountDataCard";
 
 export const Route = createFileRoute("/_authenticated/profil")({
@@ -139,6 +141,8 @@ function ProfilePage() {
       <h1 className="text-2xl font-bold tracking-tight text-slate-800">Profil & Ziele</h1>
       <p className="mt-1 text-sm text-slate-400">{user.email}</p>
 
+      <StravaConnectCard />
+      <ShortcutWebhookCard />
       <GeminiApiKeyCard />
       <AccountDataCard userId={user.id} email={user.email ?? null} />
 

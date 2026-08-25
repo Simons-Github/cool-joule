@@ -32,10 +32,7 @@ describe("remainingServerKeyQuota", () => {
     expect(isServerKeyQuotaAvailable(used(SERVER_KEY_PHOTO_LIMIT), NOW)).toBe(false);
     expect(
       isServerKeyQuotaAvailable(
-        used(
-          SERVER_KEY_PHOTO_LIMIT,
-          new Date(NOW.getTime() - SERVER_KEY_PHOTO_WINDOW_MS + 1),
-        ),
+        used(SERVER_KEY_PHOTO_LIMIT, new Date(NOW.getTime() - SERVER_KEY_PHOTO_WINDOW_MS + 1)),
         NOW,
       ),
     ).toBe(false);

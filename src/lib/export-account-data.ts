@@ -1,12 +1,15 @@
 import { supabase } from "@/integrations/supabase/client";
 import { getGeminiKeyStatus } from "@/lib/user-gemini-key";
+import { getShortcutTokenStatus } from "@/lib/shortcut-connect";
 import { todayISO } from "@/lib/nutrition";
 import type { GeminiKeyStatus } from "@/lib/gemini-api-key";
+import type { ShortcutTokenStatus } from "@/lib/shortcut";
 
 export type AccountExportPayload = {
   exportedAt: string;
   email: string | null;
   geminiKey: GeminiKeyStatus;
+  shortcut: Pick<ShortcutTokenStatus, "configured" | "suffix">;
   profile: unknown;
   food_logs: unknown[];
   weight_logs: unknown[];
@@ -53,10 +56,22 @@ export async function collectAccountExport(
     geminiKey = { configured: false, suffix: null };
   }
 
+  let shortcut: Pick<ShortcutTokenStatus, "configured" | "suffix"> = {
+    configured: false,
+    suffix: null,
+  };
+  try {
+    const status = await getShortcutTokenStatus();
+    shortcut = { configured: status.configured, suffix: status.suffix };
+  } catch {
+    shortcut = { configured: false, suffix: null };
+  }
+
   return {
     exportedAt: new Date().toISOString(),
     email,
     geminiKey,
+    shortcut,
     profile: profile.data,
     food_logs: foodLogs.data ?? [],
     weight_logs: weightLogs.data ?? [],

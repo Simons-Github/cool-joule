@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Copy, Plus, Trash2, CalendarDays } from "lucide-react";
@@ -22,6 +22,7 @@ import {
   type MealType,
 } from "@/lib/nutrition";
 import { isQuickAddServing, netRemaining, toCopiedInserts } from "@/lib/food-log";
+import { syncStravaActivities } from "@/lib/strava-connect";
 import type { Database } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -115,6 +116,23 @@ function DiaryPage() {
       return data;
     },
   });
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const result = await syncStravaActivities({ data: { force: false } });
+        if (!cancelled && result.connected && !result.skipped && result.imported > 0) {
+          queryClient.invalidateQueries({ queryKey: ["exercise_logs"] });
+        }
+      } catch {
+        // Auto-sync is best-effort; manual sync lives on the profile page.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [queryClient, user.id]);
 
   const restore = useMutation({
     mutationFn: async (row: FoodLogRow) => {
