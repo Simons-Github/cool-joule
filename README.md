@@ -46,10 +46,12 @@ Beim ersten Login berechnet ein Onboarding-Wizard (Mifflin-St Jeor) individuelle
 ### Highlights
 
 - Authentifizierung via **Supabase** (E-Mail/Passwort + Google OAuth, Passwort-Reset)
-- Tages-Tagebuch mit Datumsnavigation und Makro-Übersicht
-- Lebensmittel-Suche und Barcode-Lookup (Server Functions) plus Kamera-Scan
+- Tages-Tagebuch mit Datumsnavigation, Einträge bearbeiten und vom Vortag kopieren
+- Lebensmittel-Suche, zuletzt verwendet, Barcode-Lookup (Server Functions) plus Kamera-Scan
 - KI-Fotoanalyse (Gemini) — eigener API-Key im Profil; App-Key nur für Allowlist-Accounts (5/24h)
-- Gewichtstracking mit Recharts-Diagramm (7 / 30 / 90 Tage)
+- Aktivität/Sport-Kalorien und Netto-kcal im Tagebuch
+- Gewichtstracking und Kalorienverlauf mit Recharts (7 / 30 / 90 Tage)
+- Als PWA auf den Homescreen installierbar (ohne Offline-Sync)
 - Mobile-first Layout
 - Row Level Security — Nutzer sehen nur eigene Daten
 - Datenexport und Konto löschen
@@ -97,11 +99,16 @@ TDEE-Berechnung und Tagebuch-CRUD laufen im Client gegen Supabase (RLS). Kostenp
 | Open Food Facts Textsuche | ✅ |
 | Barcode-Lookup + Kamera-Scan | ✅ |
 | KI-Fotoanalyse | ✅ |
-| Eigene Lebensmittel anlegen | ✅ |
+| Eigene Lebensmittel anlegen, bearbeiten und löschen | ✅ |
+| Zuletzt verwendet + Vortag/Mahlzeit kopieren | ✅ |
+| Einträge bearbeiten + Löschen rückgängig | ✅ |
+| Schnellerfassen (kcal ohne Datenbank) | ✅ |
 | Gewichtsverlauf & Chart | ✅ |
+| Kalorienverlauf, Ziel-Tage und Streak | ✅ |
+| Aktivität / Sport-Kalorien im Tagebuch | ✅ |
+| PWA (Homescreen, ohne Offline-Sync) | ✅ |
 | Profil & Ziele bearbeiten | ✅ |
 | Datenexport / Konto löschen | ✅ |
-| Exercise-Kalorien im Tagebuch | ⏳ Geplant |
 
 ---
 
@@ -164,6 +171,7 @@ FOOD_PHOTO_APP_KEY_EMAILS=<deine-login-email>
 | ------- | ----- |
 | `profiles` | Körperdaten, Ziele, Makros, Onboarding-Status |
 | `food_logs` | Tägliche Mahlzeit-Einträge |
+| `exercise_logs` | Sport/Aktivitäten mit kcal pro Tag |
 | `weight_logs` | Gewicht pro Tag |
 | `custom_foods` | Nutzerdefinierte Lebensmittel |
 | `user_gemini_keys` | Verschlüsselte User-Gemini-Keys (nur service_role) |

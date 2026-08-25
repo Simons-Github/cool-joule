@@ -11,6 +11,7 @@ export type AccountExportPayload = {
   food_logs: unknown[];
   weight_logs: unknown[];
   custom_foods: unknown[];
+  exercise_logs: unknown[];
 };
 
 export function accountExportFilename(now = todayISO()): string {
@@ -21,7 +22,7 @@ export async function collectAccountExport(
   userId: string,
   email: string | null,
 ): Promise<AccountExportPayload> {
-  const [profile, foodLogs, weightLogs, customFoods] = await Promise.all([
+  const [profile, foodLogs, weightLogs, customFoods, exerciseLogs] = await Promise.all([
     supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
     supabase.from("food_logs").select("*").eq("user_id", userId).order("date", { ascending: true }),
     supabase
@@ -34,9 +35,15 @@ export async function collectAccountExport(
       .select("*")
       .eq("user_id", userId)
       .order("created_at", { ascending: false }),
+    supabase
+      .from("exercise_logs")
+      .select("*")
+      .eq("user_id", userId)
+      .order("date", { ascending: true }),
   ]);
 
-  const firstError = profile.error || foodLogs.error || weightLogs.error || customFoods.error;
+  const firstError =
+    profile.error || foodLogs.error || weightLogs.error || customFoods.error || exerciseLogs.error;
   if (firstError) throw firstError;
 
   let geminiKey: GeminiKeyStatus = { configured: false, suffix: null };
@@ -54,6 +61,7 @@ export async function collectAccountExport(
     food_logs: foodLogs.data ?? [],
     weight_logs: weightLogs.data ?? [],
     custom_foods: customFoods.data ?? [],
+    exercise_logs: exerciseLogs.data ?? [],
   };
 }
 

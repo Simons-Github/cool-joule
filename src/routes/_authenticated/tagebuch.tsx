@@ -1,13 +1,15 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Plus, Trash2, CalendarDays } from "lucide-react";
+import { ChevronLeft, ChevronRight, Copy, Plus, Trash2, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import { AppShell } from "@/components/AppShell";
 import { OnboardingModal } from "@/components/OnboardingModal";
 import { FoodSearchModal } from "@/components/FoodSearchModal";
+import { EditFoodLogDialog } from "@/components/EditFoodLogDialog";
+import { ExercisePanel } from "@/components/ExercisePanel";
 import { ErrorState } from "@/components/ErrorState";
 import { CalorieRing, MacroBar } from "@/components/MacroStats";
 import {
@@ -19,6 +21,8 @@ import {
   toISO,
   type MealType,
 } from "@/lib/nutrition";
+import { isQuickAddServing, netRemaining, toCopiedInserts } from "@/lib/food-log";
+import type { Database } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -39,6 +43,8 @@ const EMPTY_STATE_IMAGE: Record<MealType, string> = {
   dinner: "/mascot_dinner.png",
   snacks: "/mascot.png",
 };
+
+type FoodLogRow = Database["public"]["Tables"]["food_logs"]["Row"];
 
 export const Route = createFileRoute("/_authenticated/tagebuch")({
   head: () => ({
@@ -62,6 +68,7 @@ function DiaryPage() {
   const { user } = Route.useRouteContext();
   const [date, setDate] = useState(todayISO());
   const [modalMeal, setModalMeal] = useState<MealType | null>(null);
+  const [editing, setEditing] = useState<FoodLogRow | null>(null);
   const queryClient = useQueryClient();
 
   const profile = useProfile(user.id);
@@ -80,21 +87,114 @@ function DiaryPage() {
     },
   });
 
-  const remove = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
+  const yesterday = addDays(date, -1);
+  const yesterdayLogs = useQuery({
+    queryKey: ["food_logs", user.id, yesterday],
+    queryFn: async () => {
+      const { data, error } = await supabase
         .from("food_logs")
-        .delete()
-        .eq("id", id)
-        .eq("user_id", user.id);
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("date", yesterday)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const exercises = useQuery({
+    queryKey: ["exercise_logs", user.id, date],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("exercise_logs")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("date", date)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const restore = useMutation({
+    mutationFn: async (row: FoodLogRow) => {
+      const { error } = await supabase.from("food_logs").insert({
+        id: row.id,
+        user_id: row.user_id,
+        date: row.date,
+        meal_type: row.meal_type,
+        food_name: row.food_name,
+        brand: row.brand,
+        serving_size_g: row.serving_size_g,
+        calories: row.calories,
+        protein: row.protein,
+        carbs: row.carbs,
+        fat: row.fat,
+      });
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Eintrag gelöscht");
+      toast.success("Eintrag wiederhergestellt");
       queryClient.invalidateQueries({ queryKey: ["food_logs"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const remove = useMutation({
+    mutationFn: async (row: FoodLogRow) => {
+      const { error } = await supabase
+        .from("food_logs")
+        .delete()
+        .eq("id", row.id)
+        .eq("user_id", user.id);
+      if (error) throw error;
+      return row;
+    },
+    onSuccess: (row) => {
+      toast.success("Eintrag gelöscht", {
+        action: {
+          label: "Rückgängig",
+          onClick: () => restore.mutate(row),
+        },
+      });
+      queryClient.invalidateQueries({ queryKey: ["food_logs"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const copyFromYesterday = useMutation({
+    mutationFn: async (mealType?: MealType) => {
+      const source = (yesterdayLogs.data ?? []).filter((row) =>
+        mealType ? row.meal_type === mealType : true,
+      );
+      if (source.length === 0) {
+        throw new Error("Es gibt nichts zu kopieren.");
+      }
+      const inserts = toCopiedInserts(source, date);
+      const { error } = await supabase.from("food_logs").insert(inserts);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Einträge kopiert");
+      queryClient.invalidateQueries({ queryKey: ["food_logs"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  function requestCopy(mealType?: MealType) {
+    const target = (logs.data ?? []).filter((row) =>
+      mealType ? row.meal_type === mealType : true,
+    );
+    if (target.length > 0) {
+      const ok = window.confirm(
+        mealType
+          ? "Diese Mahlzeit hat schon Einträge. Trotzdem vom Vortag kopieren?"
+          : "Dieser Tag hat schon Einträge. Trotzdem vom Vortag kopieren?",
+      );
+      if (!ok) return;
+    }
+    copyFromYesterday.mutate(mealType);
+  }
 
   const totals = useMemo(() => {
     const rows = logs.data ?? [];
@@ -109,10 +209,22 @@ function DiaryPage() {
     );
   }, [logs.data]);
 
+  const exerciseCal = useMemo(
+    () => (exercises.data ?? []).reduce((sum, row) => sum + Number(row.calories), 0),
+    [exercises.data],
+  );
+  const remaining = netRemaining({
+    target: profile.data?.daily_calories ?? 2000,
+    food: totals.calories,
+    exercise: exerciseCal,
+  });
+
   const targetCal = profile.data?.daily_calories ?? 2000;
   const needsOnboarding = profile.isSuccess && !profile.data?.onboarded;
   const isLoading = profile.isLoading || logs.isLoading;
   const hasError = profile.isError || logs.isError;
+  const yesterdayHasItems = (yesterdayLogs.data ?? []).length > 0;
+  const copyDayLabel = date === todayISO() ? "Gestern kopieren" : "Vorherigen Tag kopieren";
 
   return (
     <AppShell>
@@ -158,6 +270,18 @@ function DiaryPage() {
           <ChevronRight className="size-5" />
         </Button>
       </div>
+      <div className="mb-5 flex justify-center">
+        <Button
+          variant="outline"
+          size="sm"
+          className="rounded-xl border-rose-200 text-slate-600"
+          disabled={!yesterdayHasItems || copyFromYesterday.isPending}
+          onClick={() => requestCopy()}
+        >
+          <Copy className="size-4" />
+          {copyDayLabel}
+        </Button>
+      </div>
 
       <h1 className="sr-only">Tagebuch</h1>
 
@@ -177,12 +301,18 @@ function DiaryPage() {
           {/* Summary card — Calorie ring + macro bars */}
           <section className="rounded-3xl bg-white p-5 shadow-xl shadow-rose-100/50">
             <div className="flex flex-col items-center gap-6 sm:flex-row">
-              <CalorieRing consumed={totals.calories} target={targetCal} />
+              <CalorieRing consumed={totals.calories} target={targetCal + exerciseCal} />
               <div className="w-full flex-1 space-y-4">
-                <div className="grid grid-cols-3 gap-2 text-center text-sm">
+                <div className="grid grid-cols-2 gap-2 text-center text-sm sm:grid-cols-4">
                   <div>
                     <p className="text-slate-400">Ziel</p>
                     <p className="font-semibold tabular-nums text-slate-700">{targetCal}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-400">Sport</p>
+                    <p className="font-semibold tabular-nums text-slate-700">
+                      +{Math.round(exerciseCal)}
+                    </p>
                   </div>
                   <div>
                     <p className="text-slate-400">Gegessen</p>
@@ -192,9 +322,7 @@ function DiaryPage() {
                   </div>
                   <div>
                     <p className="text-slate-400">Übrig</p>
-                    <p className="font-semibold tabular-nums text-slate-700">
-                      {Math.round(targetCal - totals.calories)}
-                    </p>
+                    <p className="font-semibold tabular-nums text-slate-700">{remaining}</p>
                   </div>
                 </div>
                 <MacroBar
@@ -219,6 +347,10 @@ function DiaryPage() {
             </div>
           </section>
 
+          <div className="mt-5">
+            <ExercisePanel userId={user.id} date={date} />
+          </div>
+
           {/* Meal sections */}
           <div className="mt-5 space-y-4">
             {MEALS.map((meal) => {
@@ -229,11 +361,25 @@ function DiaryPage() {
                   key={meal.key}
                   className="rounded-3xl bg-white p-4 shadow-lg shadow-rose-50/80"
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <h2 className="font-semibold text-slate-800">{meal.label}</h2>
-                    <span className="text-sm text-slate-400 tabular-nums">
-                      {Math.round(mealCal)} kcal
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {(yesterdayLogs.data ?? []).some((row) => row.meal_type === meal.key) && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 rounded-xl px-2 text-xs text-slate-400 hover:text-rose-600"
+                          disabled={copyFromYesterday.isPending}
+                          onClick={() => requestCopy(meal.key)}
+                        >
+                          <Copy className="size-3.5" />
+                          Gestern
+                        </Button>
+                      )}
+                      <span className="text-sm text-slate-400 tabular-nums">
+                        {Math.round(mealCal)} kcal
+                      </span>
+                    </div>
                   </div>
 
                   <div className="mt-3 divide-y divide-slate-50">
@@ -249,16 +395,23 @@ function DiaryPage() {
                     )}
                     {items.map((item) => (
                       <div key={item.id} className="flex items-center gap-3 py-2.5">
-                        <div className="min-w-0 flex-1">
+                        <button
+                          type="button"
+                          onClick={() => setEditing(item)}
+                          className="min-w-0 flex-1 rounded-xl text-left hover:bg-rose-50/70"
+                        >
                           <p className="truncate text-sm font-medium text-slate-700">
                             {item.food_name}
                           </p>
                           <p className="truncate text-xs text-slate-400">
                             {item.brand ? `${item.brand} · ` : ""}
-                            {Number(item.serving_size_g)} g · {Number(item.protein)} g E ·{" "}
-                            {Number(item.carbs)} g KH · {Number(item.fat)} g F
+                            {isQuickAddServing(Number(item.serving_size_g))
+                              ? ""
+                              : `${Number(item.serving_size_g)} g · `}
+                            {Number(item.protein)} g E · {Number(item.carbs)} g KH ·{" "}
+                            {Number(item.fat)} g F
                           </p>
-                        </div>
+                        </button>
                         <span className="text-sm tabular-nums text-slate-600">
                           {Math.round(Number(item.calories))} kcal
                         </span>
@@ -266,7 +419,7 @@ function DiaryPage() {
                           variant="ghost"
                           size="icon"
                           aria-label="Item löschen"
-                          onClick={() => remove.mutate(item.id)}
+                          onClick={() => remove.mutate(item)}
                           className="size-8 rounded-xl text-slate-300 hover:bg-rose-50 hover:text-rose-400"
                         >
                           <Trash2 className="size-4" />
@@ -299,6 +452,8 @@ function DiaryPage() {
           userId={user.id}
         />
       )}
+
+      <EditFoodLogDialog item={editing} userId={user.id} onClose={() => setEditing(null)} />
     </AppShell>
   );
 }
@@ -310,7 +465,8 @@ function DiarySkeleton() {
         <div className="flex flex-col items-center gap-6 sm:flex-row">
           <Skeleton className="size-[148px] shrink-0 rounded-full" />
           <div className="w-full flex-1 space-y-4">
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <Skeleton className="h-10 w-full rounded-xl" />
               <Skeleton className="h-10 w-full rounded-xl" />
               <Skeleton className="h-10 w-full rounded-xl" />
               <Skeleton className="h-10 w-full rounded-xl" />
@@ -321,6 +477,7 @@ function DiarySkeleton() {
           </div>
         </div>
       </section>
+      <Skeleton className="h-28 w-full rounded-3xl" />
       {MEALS.map((meal) => (
         <div key={meal.key} className="rounded-3xl bg-white p-4 shadow-lg shadow-rose-50/80">
           <Skeleton className="h-5 w-32 rounded-lg" />
