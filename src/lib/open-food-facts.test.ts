@@ -6,11 +6,14 @@ import {
   getOpenFoodFactsErrorMessage,
   kcalFromNutriments,
   lookupProductByBarcode,
+  mapAndRankSearchHits,
   mapOffProductToFoodItem,
   mapOffProducts,
   normalizeBarcode,
+  normalizeBrands,
   offProductName,
   parseNutrientValue,
+  scoreSearchHit,
   searchProducts,
 } from "./open-food-facts";
 import { APP_NAME } from "./app-config";
@@ -35,6 +38,10 @@ describe("kcalFromNutriments", () => {
 
   it("converts kJ from energy_100g when kcal is missing", () => {
     expect(kcalFromNutriments({ energy_100g: 418.4 })).toBe(100);
+  });
+
+  it("falls back to energy-kcal without _100g suffix", () => {
+    expect(kcalFromNutriments({ "energy-kcal": 57 })).toBe(57);
   });
 });
 
@@ -77,6 +84,30 @@ describe("mapOffProductToFoodItem", () => {
     });
     expect(item?.name).toBe("Vollmilch");
   });
+
+  it("normalizes brand arrays and keeps the barcode", () => {
+    const item = mapOffProductToFoodItem({
+      code: "4012345678901",
+      product_name: "Skyr",
+      brands: [" Arla ", "Milsani"],
+      nutriments: { "energy-kcal_100g": 57 },
+    });
+    expect(item?.brand).toBe("Arla, Milsani");
+    expect(item?.barcode).toBe("4012345678901");
+  });
+
+  it("picks the localized name that matches the query", () => {
+    const item = mapOffProductToFoodItem(
+      {
+        product_name: "Compote",
+        product_name_en: "Skyr Pur",
+        nutriments: { "energy-kcal_100g": 65 },
+      },
+      undefined,
+      "Skyr",
+    );
+    expect(item?.name).toBe("Skyr Pur");
+  });
 });
 
 describe("mapOffProducts", () => {
@@ -94,9 +125,25 @@ describe("mapOffProducts", () => {
   });
 });
 
+describe("normalizeBrands", () => {
+  it("joins and trims brand arrays", () => {
+    expect(normalizeBrands([" Skyr ", "Arla"])).toBe("Skyr, Arla");
+  });
+
+  it("returns null for empty values", () => {
+    expect(normalizeBrands([])).toBeNull();
+    expect(normalizeBrands("  ")).toBeNull();
+    expect(normalizeBrands(undefined)).toBeNull();
+  });
+});
+
 describe("buildSearchUrl", () => {
-  it("encodes search terms", () => {
-    expect(buildSearchUrl("hafer milch")).toContain("search_terms=hafer+milch");
+  it("uses Search-a-licious with German language fields", () => {
+    const url = buildSearchUrl("hafer milch");
+    expect(url).toContain("search.openfoodfacts.org/search");
+    expect(url).toContain("q=hafer+milch");
+    expect(url).toContain("langs=de%2Cen");
+    expect(url).not.toContain("cgi/search.pl");
   });
 });
 
@@ -177,8 +224,91 @@ describe("lookupProductByBarcode", () => {
 });
 
 describe("offProductName", () => {
-  it("prefers product_name over localized fallback", () => {
-    expect(offProductName({ product_name: "Milk", product_name_de: "Milch" })).toBe("Milk");
+  it("prefers the German product name", () => {
+    expect(offProductName({ product_name: "Milk", product_name_de: "Milch" })).toBe("Milch");
+  });
+
+  it("prefers a candidate that contains the query", () => {
+    expect(
+      offProductName(
+        { product_name: "Compote", product_name_other: ["Skyr Pur"] },
+        "skyr",
+      ),
+    ).toBe("Skyr Pur");
+  });
+});
+
+describe("mapAndRankSearchHits", () => {
+  it("ranks German exact name matches above weaker foreign hits", () => {
+    const items = mapAndRankSearchHits(
+      [
+        {
+          code: "1",
+          product_name: "Fromage blanc",
+          countries_tags: ["en:france"],
+          unique_scans_n: 400,
+          nutriments: { "energy-kcal_100g": 80 },
+        },
+        {
+          code: "2",
+          product_name: "Skyr",
+          brands: ["Arla"],
+          countries_tags: ["en:germany"],
+          unique_scans_n: 8,
+          completeness: 0.8,
+          nutriments: { "energy-kcal_100g": 57 },
+        },
+      ],
+      "Skyr",
+    );
+
+    expect(items[0]?.name).toBe("Skyr");
+    expect(items[0]?.brand).toBe("Arla");
+  });
+
+  it("dedupes the same barcode", () => {
+    const items = mapAndRankSearchHits(
+      [
+        {
+          code: "401",
+          product_name: "Skyr",
+          nutriments: { "energy-kcal_100g": 57 },
+        },
+        {
+          code: "401",
+          product_name: "Skyr Nature",
+          nutriments: { "energy-kcal_100g": 57 },
+        },
+      ],
+      "Skyr",
+    );
+    expect(items).toHaveLength(1);
+  });
+});
+
+describe("scoreSearchHit", () => {
+  it("scores an exact German match higher than a brand-only hit", () => {
+    const exact = scoreSearchHit({
+      name: "Skyr",
+      brand: "Arla",
+      query: "Skyr",
+      relevanceIndex: 5,
+      uniqueScans: 10,
+      popularityKey: 0,
+      completeness: 0.8,
+      countries: ["en:germany"],
+    });
+    const brandOnly = scoreSearchHit({
+      name: "Compote",
+      brand: "Skyr",
+      query: "Skyr",
+      relevanceIndex: 0,
+      uniqueScans: 10,
+      popularityKey: 0,
+      completeness: 0.8,
+      countries: ["en:germany"],
+    });
+    expect(exact).toBeGreaterThan(brandOnly);
   });
 });
 
@@ -194,6 +324,12 @@ describe("searchProducts", () => {
     });
   });
 
+  it("rethrows abort errors", async () => {
+    const abort = Object.assign(new Error("Aborted"), { name: "AbortError" });
+    const fetchFn = vi.fn().mockRejectedValue(abort);
+    await expect(searchProducts("banane", { fetch: fetchFn })).rejects.toBe(abort);
+  });
+
   it("throws HTTP on non-ok response", async () => {
     const fetchFn = vi.fn().mockResolvedValue({ ok: false, status: 503, json: async () => ({}) });
     await expect(searchProducts("banane", { fetch: fetchFn })).rejects.toMatchObject({
@@ -206,7 +342,7 @@ describe("searchProducts", () => {
     const fetchFn = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
-        products: [
+        hits: [
           {
             product_name: "Banane",
             nutriments: { "energy-kcal_100g": 89 },
@@ -217,8 +353,9 @@ describe("searchProducts", () => {
 
     const items = await searchProducts("banane", { fetch: fetchFn });
     expect(items).toHaveLength(1);
+    expect(items[0]?.name).toBe("Banane");
     expect(fetchFn).toHaveBeenCalledWith(
-      expect.stringContaining("world.openfoodfacts.org"),
+      expect.stringContaining("search.openfoodfacts.org/search"),
       expect.objectContaining({
         headers: expect.objectContaining({ "User-Agent": expect.stringContaining(APP_NAME) }),
       }),
@@ -232,9 +369,9 @@ describe("getOpenFoodFactsErrorMessage", () => {
     expect(getOpenFoodFactsErrorMessage(err)).toBe("Server nicht erreichbar.");
   });
 
-  it("returns generic German fallback for non-OFF errors", () => {
-    expect(getOpenFoodFactsErrorMessage(new Error("fetch failed: ECONNREFUSED"))).toBe(
-      "Suche fehlgeschlagen. Bitte erneut versuchen.",
+  it("uses Error messages so server RPC errors stay readable", () => {
+    expect(getOpenFoodFactsErrorMessage(new Error("Bitte anmelden, um zu suchen."))).toBe(
+      "Bitte anmelden, um zu suchen.",
     );
     expect(getOpenFoodFactsErrorMessage("unexpected")).toBe(
       "Suche fehlgeschlagen. Bitte erneut versuchen.",

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Barcode, Camera, Loader2, Search, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,9 +8,9 @@ import { MEALS } from "@/lib/nutrition";
 import {
   getOpenFoodFactsErrorMessage,
   lookupProductByBarcode,
-  searchProducts,
   type FoodItem,
 } from "@/lib/open-food-facts";
+import { searchOpenFoodFacts } from "@/lib/search-open-food-facts";
 import { useBarcodeScanner } from "@/hooks/useBarcodeScanner";
 import { FoodPhotoCapture, FoodPhotoResults } from "@/components/FoodPhotoPanel";
 import { useFoodPhotoLog } from "@/hooks/useFoodPhotoLog";
@@ -72,9 +72,10 @@ export function FoodSearchModal({
 
   const results = useQuery({
     queryKey: ["off", debounced],
-    queryFn: () => searchProducts(debounced),
-    enabled: debounced.trim().length > 2,
+    queryFn: () => searchOpenFoodFacts({ data: { query: debounced } }),
+    enabled: open && debounced.trim().length > 2,
     staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 
   const searchErrorMessage = results.isError ? getOpenFoodFactsErrorMessage(results.error) : null;
@@ -335,10 +336,13 @@ export function FoodSearchModal({
                     Mindestens 3 Zeichen eingeben, um zu suchen.
                   </p>
                 )}
-                {results.isFetching && debounced.trim().length > 2 && (
+                {results.isPending && debounced.trim().length > 2 && (
                   <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
                     <Loader2 className="size-4 animate-spin" /> Suche läuft…
                   </div>
+                )}
+                {results.isFetching && !results.isPending && (
+                  <p className="pb-2 text-center text-xs text-muted-foreground">Aktualisiere…</p>
                 )}
                 {searchErrorMessage && (
                   <p className="py-8 text-center text-sm text-destructive">{searchErrorMessage}</p>
@@ -350,20 +354,21 @@ export function FoodSearchModal({
                   </p>
                 )}
                 <div className="space-y-1.5 pr-3">
-                  {results.data?.map((item, i) => (
-                    <button
-                      key={`${item.name}-${i}`}
-                      onClick={() => setSelected(item)}
-                      className="w-full rounded-xl p-3 text-left transition-colors hover:bg-rose-50"
-                    >
-                      <p className="text-sm font-medium">{item.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {item.brand ? `${item.brand} · ` : ""}
-                        {Math.round(item.kcal100)} kcal / 100 g · {item.protein100} g E ·{" "}
-                        {item.carbs100} g KH · {item.fat100} g F
-                      </p>
-                    </button>
-                  ))}
+                  {debounced.trim().length > 2 &&
+                    results.data?.map((item, i) => (
+                      <button
+                        key={`${item.barcode ?? item.name}-${i}`}
+                        onClick={() => setSelected(item)}
+                        className="w-full rounded-xl p-3 text-left transition-colors hover:bg-rose-50"
+                      >
+                        <p className="text-sm font-medium">{item.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {item.brand ? `${item.brand} · ` : ""}
+                          {Math.round(item.kcal100)} kcal / 100 g · {item.protein100} g E ·{" "}
+                          {item.carbs100} g KH · {item.fat100} g F
+                        </p>
+                      </button>
+                    ))}
                 </div>
               </ScrollArea>
             </TabsContent>

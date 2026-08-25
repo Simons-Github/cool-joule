@@ -1,7 +1,9 @@
 import { z } from "zod";
 
-/** Latest Gemini Flash with vision via AI Gateway (checked against gateway model list). */
+/** Latest Gemini Flash with vision (AI Gateway uses provider/model). */
 export const FOOD_PHOTO_MODEL = "google/gemini-3.7-flash";
+/** Same model when calling Google Generative AI directly with GEMINI_API_KEY. */
+export const FOOD_PHOTO_GOOGLE_MODEL = "gemini-3.7-flash";
 
 export const ALLOWED_IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 export type AllowedImageMimeType = (typeof ALLOWED_IMAGE_MIME_TYPES)[number];
@@ -42,6 +44,7 @@ export type FoodPhotoErrorCode =
   | "TOO_LARGE"
   | "UNSUPPORTED_TYPE"
   | "NO_FOOD"
+  | "RATE_LIMITED"
   | "ANALYSIS_FAILED";
 
 export class FoodPhotoError extends Error {
