@@ -6,6 +6,7 @@ import {
   getServerKeyQuotaExceededMessage,
   isFoodPhotoQuotaBlocked,
   isServerKeyQuotaAvailable,
+  ownKeyRequiredQuota,
   serverKeyQuotaResetsAt,
   toLimitedFoodPhotoQuota,
 } from "./food-photo-quota";
@@ -46,6 +47,18 @@ describe("toLimitedFoodPhotoQuota", () => {
       remaining: 0,
       resetsAt: serverKeyQuotaResetsAt(NOW).toISOString(),
     });
+  });
+});
+
+describe("ownKeyRequiredQuota", () => {
+  it("blocks analysis and asks for a personal key", () => {
+    expect(ownKeyRequiredQuota()).toEqual({
+      limited: true,
+      remaining: 0,
+      resetsAt: null,
+      requiresOwnKey: true,
+    });
+    expect(isFoodPhotoQuotaBlocked(ownKeyRequiredQuota())).toBe(true);
   });
 });
 

@@ -1,11 +1,13 @@
 import { FoodPhotoError } from "@/lib/food-photo-analysis";
 import {
   getServerKeyQuotaExceededMessage,
+  ownKeyRequiredQuota,
   serverKeyQuotaResetsAt,
   toLimitedFoodPhotoQuota,
   type FoodPhotoQuota,
 } from "@/lib/food-photo-quota";
-import { logServerError } from "@/lib/server-auth";
+import { isFoodPhotoAppKeyAllowed } from "@/lib/food-photo-allowlist";
+import { logServerError, type AuthenticatedUser } from "@/lib/server-auth";
 
 const UNAUTHENTICATED_MESSAGE = "Bitte anmelden, um Fotos zu analysieren.";
 const QUOTA_CHECK_FAILED = "Das Analyse-Kontingent konnte nicht geprüft werden.";
@@ -15,10 +17,10 @@ async function getAdmin() {
   return createSupabaseAdmin();
 }
 
-async function requireUserId(): Promise<string> {
-  const { requireAuthenticatedUserId } = await import("@/lib/server-auth");
+async function requirePhotoUser(): Promise<AuthenticatedUser> {
+  const { requireAuthenticatedUser } = await import("@/lib/server-auth");
   try {
-    return await requireAuthenticatedUserId(UNAUTHENTICATED_MESSAGE);
+    return await requireAuthenticatedUser(UNAUTHENTICATED_MESSAGE);
   } catch (error) {
     if (error instanceof Error && error.message === UNAUTHENTICATED_MESSAGE) {
       throw new FoodPhotoError("UNAUTHENTICATED", UNAUTHENTICATED_MESSAGE);
@@ -28,7 +30,7 @@ async function requireUserId(): Promise<string> {
 }
 
 export async function getFoodPhotoQuotaForUser(): Promise<FoodPhotoQuota> {
-  const userId = await requireUserId();
+  const user = await requirePhotoUser();
   let admin;
   try {
     admin = await getAdmin();
@@ -40,7 +42,7 @@ export async function getFoodPhotoQuotaForUser(): Promise<FoodPhotoQuota> {
   const { data: keyRow, error: keyError } = await admin
     .from("user_gemini_keys")
     .select("user_id")
-    .eq("user_id", userId)
+    .eq("user_id", user.id)
     .maybeSingle();
 
   if (keyError) {
@@ -50,10 +52,12 @@ export async function getFoodPhotoQuotaForUser(): Promise<FoodPhotoQuota> {
 
   if (keyRow) return { limited: false };
 
+  if (!isFoodPhotoAppKeyAllowed(user)) return ownKeyRequiredQuota();
+
   const { data: usage, error: usageError } = await admin
     .from("food_photo_server_usage")
     .select("last_used_at")
-    .eq("user_id", userId)
+    .eq("user_id", user.id)
     .maybeSingle();
 
   if (usageError) {

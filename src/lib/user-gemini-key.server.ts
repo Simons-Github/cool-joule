@@ -102,6 +102,16 @@ export async function getUserGeminiKeyStatus(): Promise<GeminiKeyStatus> {
 
 export async function saveUserGeminiApiKey(apiKey: string): Promise<GeminiKeyStatus> {
   const userId = await requireUserId();
+  const { enforceRateLimit } = await import("@/lib/rate-limit.server");
+  const { RateLimitError } = await import("@/lib/rate-limit");
+  try {
+    await enforceRateLimit(userId, "save_gemini_key");
+  } catch (error) {
+    if (error instanceof RateLimitError) {
+      throw new GeminiKeyError("RATE_LIMITED", error.message);
+    }
+    throw error;
+  }
   const admin = await getAdmin();
   const encryptionKey = getEncryptionKey();
   await verifyGeminiApiKey(apiKey);

@@ -230,10 +230,7 @@ describe("offProductName", () => {
 
   it("prefers a candidate that contains the query", () => {
     expect(
-      offProductName(
-        { product_name: "Compote", product_name_other: ["Skyr Pur"] },
-        "skyr",
-      ),
+      offProductName({ product_name: "Compote", product_name_other: ["Skyr Pur"] }, "skyr"),
     ).toBe("Skyr Pur");
   });
 });

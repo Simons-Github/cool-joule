@@ -5,12 +5,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { MealType } from "@/lib/nutrition";
 import { MEALS } from "@/lib/nutrition";
-import {
-  getOpenFoodFactsErrorMessage,
-  lookupProductByBarcode,
-  type FoodItem,
-} from "@/lib/open-food-facts";
-import { searchOpenFoodFacts } from "@/lib/search-open-food-facts";
+import { getOpenFoodFactsErrorMessage, type FoodItem } from "@/lib/open-food-facts";
+import { searchOpenFoodFacts, lookupOpenFoodFactsBarcode } from "@/lib/search-open-food-facts";
 import { useBarcodeScanner } from "@/hooks/useBarcodeScanner";
 import { FoodPhotoCapture, FoodPhotoResults } from "@/components/FoodPhotoPanel";
 import { useFoodPhotoLog } from "@/hooks/useFoodPhotoLog";
@@ -86,7 +82,7 @@ export function FoodSearchModal({
     results.data?.length === 0;
 
   const barcodeLookup = useMutation({
-    mutationFn: (raw: string) => lookupProductByBarcode(raw),
+    mutationFn: (raw: string) => lookupOpenFoodFactsBarcode({ data: { barcode: raw } }),
     onSuccess: (item) => {
       setSelected(item);
       setBarcodeInput(item.barcode ?? "");
