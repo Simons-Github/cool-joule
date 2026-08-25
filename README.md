@@ -48,7 +48,7 @@ Beim ersten Login berechnet ein Onboarding-Wizard (Mifflin-St Jeor) individuelle
 - Authentifizierung via **Supabase** (E-Mail/Passwort + Google OAuth, Passwort-Reset)
 - Tages-Tagebuch mit Datumsnavigation und Makro-Übersicht
 - Lebensmittel-Suche und Barcode-Lookup (Server Functions) plus Kamera-Scan
-- KI-Fotoanalyse (Gemini) — eigener API-Key im Profil; App-Key nur für allowlistete Owner
+- KI-Fotoanalyse (Gemini) — eigener API-Key im Profil; App-Key nur für Allowlist-Accounts (5/24h)
 - Gewichtstracking mit Recharts-Diagramm (7 / 30 / 90 Tage)
 - Mobile-first Layout
 - Row Level Security — Nutzer sehen nur eigene Daten
@@ -136,7 +136,7 @@ FOOD_PHOTO_APP_KEY_USER_IDS=<deine-user-uuid>
 FOOD_PHOTO_APP_KEY_EMAILS=<deine-login-email>
 ```
 
-`process.env.VERCEL` allein gilt **nicht** als Gateway-Auth. Ohne Eintrag in der Owner-Allowlist brauchen Nutzer einen eigenen Gemini-Key im Profil. Leere Allowlists sind fail-closed (niemand bekommt den App-Key).
+`process.env.VERCEL` allein gilt **nicht** als Gateway-Auth. Ohne Eintrag in der Allowlist brauchen Nutzer einen eigenen Gemini-Key im Profil. Leere Allowlists sind fail-closed (niemand bekommt den App-Key). Allowlist-Accounts ohne eigenen Key haben 5 Analysen / 24 Stunden.
 
 ### Supabase einrichten
 
@@ -167,7 +167,7 @@ FOOD_PHOTO_APP_KEY_EMAILS=<deine-login-email>
 | `weight_logs` | Gewicht pro Tag |
 | `custom_foods` | Nutzerdefinierte Lebensmittel |
 | `user_gemini_keys` | Verschlüsselte User-Gemini-Keys (nur service_role) |
-| `food_photo_server_usage` | 1/24h-Quota für den Owner-App-Key (nur service_role) |
+| `food_photo_server_usage` | 5/24h-Quota für den App-Key (Allowlist, nur service_role) |
 | `server_rate_limits` | Rate-Limits für Server Functions (nur service_role) |
 
 Nutzerdaten-Tabellen haben **Row Level Security** (`auth.uid()` = eigener Datensatz). Key-/Quota-/Rate-Limit-Tabellen sind dem Client entzogen.
@@ -205,7 +205,7 @@ Die App wird über Vercel unter [cool-joule.vercel.app](https://cool-joule.verce
 - [ ] Dieselben `VITE_SUPABASE_*`-Werte wie im Supabase-Projekt
 - [ ] `SUPABASE_SECRET_KEY` und `USER_SECRETS_ENCRYPTION_KEY` in Vercel (Production **und** Preview)
 - [ ] `GEMINI_API_KEY` und/oder `AI_GATEWAY_API_KEY` (oder `FOOD_PHOTO_USE_AI_GATEWAY=true` bei bewusst aktiviertem OIDC-Gateway)
-- [ ] `FOOD_PHOTO_APP_KEY_USER_IDS` / `FOOD_PHOTO_APP_KEY_EMAILS` auf den Betreiber-Account
+- [ ] `FOOD_PHOTO_APP_KEY_USER_IDS` / `FOOD_PHOTO_APP_KEY_EMAILS` auf die Allowlist-Accounts
 - [ ] Auth-Redirects inkl. `/auth` für Recovery
 - [ ] Leaked-Password-Protection im Supabase-Dashboard
 - [ ] Migrationen auf dem Cool-Joule-Projekt angewendet

@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { deleteGeminiApiKey, getGeminiKeyStatus, saveGeminiApiKey } from "@/lib/user-gemini-key";
 import { getGeminiKeyErrorMessage, validateGeminiApiKey } from "@/lib/gemini-api-key";
-import { foodPhotoQuotaQueryKey } from "@/lib/food-photo-quota";
+import { foodPhotoQuotaQueryKey, SERVER_KEY_PHOTO_LIMIT } from "@/lib/food-photo-quota";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -59,8 +59,8 @@ export function GeminiApiKeyCard() {
           >
             Google AI Studio
           </a>
-          . Er wird verschlüsselt gespeichert und danach nicht mehr angezeigt. Der App-Key steht nur
-          dem Betreiber zur Verfügung (1 Analyse / 24 Stunden).
+          . Er wird verschlüsselt gespeichert und danach nicht mehr angezeigt. Freigeschaltete
+          Accounts können den App-Key mit {SERVER_KEY_PHOTO_LIMIT} Analysen / 24 Stunden nutzen.
         </p>
       </div>
 

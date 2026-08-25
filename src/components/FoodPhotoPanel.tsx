@@ -12,6 +12,7 @@ import {
   type PhotoDraft,
 } from "@/lib/food-photo-analysis";
 import {
+  SERVER_KEY_PHOTO_LIMIT,
   foodPhotoQuotaQueryKey,
   formatQuotaReset,
   isFoodPhotoQuotaBlocked,
@@ -145,7 +146,7 @@ function FoodPhotoQuotaHint({ quota }: { quota: FoodPhotoQuota | undefined }) {
   if (quota.requiresOwnKey) {
     return (
       <p className="text-sm text-rose-600">
-        Die App-Analyse ist nur für den Betreiber verfügbar. Hinterlege einen eigenen Key im{" "}
+        Der App-Key ist nur für freigeschaltete Accounts verfügbar. Hinterlege einen eigenen Key im{" "}
         <ProfileKeyLink />.
       </p>
     );
@@ -163,7 +164,8 @@ function FoodPhotoQuotaHint({ quota }: { quota: FoodPhotoQuota | undefined }) {
 
   return (
     <p className="text-sm text-muted-foreground">
-      Ohne eigenen API-Key: 1 Analyse pro 24 Stunden. Unbegrenzt mit Key im <ProfileKeyLink />.
+      Freigeschaltete Accounts: {quota.remaining} von {SERVER_KEY_PHOTO_LIMIT} Analysen in 24
+      Stunden übrig. Unbegrenzt mit Key im <ProfileKeyLink />.
     </p>
   );
 }

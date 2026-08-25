@@ -56,7 +56,7 @@ export async function getFoodPhotoQuotaForUser(): Promise<FoodPhotoQuota> {
 
   const { data: usage, error: usageError } = await admin
     .from("food_photo_server_usage")
-    .select("last_used_at")
+    .select("window_started_at, use_count")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -65,7 +65,11 @@ export async function getFoodPhotoQuotaForUser(): Promise<FoodPhotoQuota> {
     throw new FoodPhotoError("ANALYSIS_FAILED", QUOTA_CHECK_FAILED);
   }
 
-  return toLimitedFoodPhotoQuota(usage?.last_used_at ? new Date(usage.last_used_at) : null);
+  return toLimitedFoodPhotoQuota(
+    usage
+      ? { windowStartedAt: new Date(usage.window_started_at), useCount: usage.use_count }
+      : null,
+  );
 }
 
 export async function claimServerKeyPhotoQuota(userId: string): Promise<void> {
@@ -93,7 +97,7 @@ export async function claimServerKeyPhotoQuota(userId: string): Promise<void> {
 
   const { data: usage, error: usageError } = await admin
     .from("food_photo_server_usage")
-    .select("last_used_at")
+    .select("window_started_at")
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -101,9 +105,9 @@ export async function claimServerKeyPhotoQuota(userId: string): Promise<void> {
     logServerError(usageError);
   }
 
-  const lastUsed = usage?.last_used_at ? new Date(usage.last_used_at) : new Date();
+  const windowStartedAt = usage?.window_started_at ? new Date(usage.window_started_at) : new Date();
   throw new FoodPhotoError(
     "RATE_LIMITED",
-    getServerKeyQuotaExceededMessage(serverKeyQuotaResetsAt(lastUsed)),
+    getServerKeyQuotaExceededMessage(serverKeyQuotaResetsAt(windowStartedAt)),
   );
 }
