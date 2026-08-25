@@ -1,14 +1,18 @@
 import { createServerFn } from "@tanstack/react-start";
 import {
+  FOOD_PHOTO_ANALYSIS_TIMEOUT_MS,
   FOOD_PHOTO_GOOGLE_MODEL,
   FOOD_PHOTO_MODEL,
   FOOD_PHOTO_PROMPT,
+  FOOD_PHOTO_TIMEOUT_MESSAGE,
   FoodPhotoError,
   foodPhotoAnalysisSchema,
+  isFoodPhotoTimeoutError,
   mapAnalyzedItems,
   validateImagePayload,
   type AnalyzedFoodItem,
 } from "@/lib/food-photo-analysis";
+import { FOOD_PHOTO_OFF_TIMEOUT_MS } from "@/lib/food-photo-off";
 import { OWN_KEY_REQUIRED_MESSAGE, type FoodPhotoQuota } from "@/lib/food-photo-quota";
 import type { AuthenticatedUser } from "@/lib/server-auth";
 
@@ -115,6 +119,15 @@ export const analyzeFoodPhoto = createServerFn({ method: "POST" })
         output: Output.object({
           schema: foodPhotoAnalysisSchema,
         }),
+        abortSignal: AbortSignal.timeout(FOOD_PHOTO_ANALYSIS_TIMEOUT_MS),
+        maxRetries: 0,
+        providerOptions: {
+          google: {
+            thinkingConfig: {
+              thinkingLevel: "minimal",
+            },
+          },
+        },
         messages: [
           {
             role: "user",
@@ -137,7 +150,10 @@ export const analyzeFoodPhoto = createServerFn({ method: "POST" })
         );
       }
 
-      const items = mapAnalyzedItems(output.items);
+      const { enrichPhotoItemsWithOff } = await import("@/lib/food-photo-off");
+      const items = await enrichPhotoItemsWithOff(mapAnalyzedItems(output.items), {
+        signal: AbortSignal.timeout(FOOD_PHOTO_OFF_TIMEOUT_MS),
+      });
       if (resolved.usesAppKey) {
         const { claimServerKeyPhotoQuota } = await import("@/lib/food-photo-quota.server");
         await claimServerKeyPhotoQuota(user.id);
@@ -147,6 +163,9 @@ export const analyzeFoodPhoto = createServerFn({ method: "POST" })
       if (error instanceof FoodPhotoError) throw error;
       const rateLimited = toFoodPhotoRateLimitError(error);
       if (rateLimited) throw rateLimited;
+      if (isFoodPhotoTimeoutError(error)) {
+        throw new FoodPhotoError("ANALYSIS_FAILED", FOOD_PHOTO_TIMEOUT_MESSAGE, { cause: error });
+      }
       logServerError(error);
       throw new FoodPhotoError(
         "ANALYSIS_FAILED",
