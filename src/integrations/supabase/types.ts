@@ -110,6 +110,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      exercise_logs: {
+        Row: {
+          calories: number;
+          created_at: string;
+          date: string;
+          id: string;
+          name: string;
+          user_id: string;
+        };
+        Insert: {
+          calories?: number;
+          created_at?: string;
+          date?: string;
+          id?: string;
+          name: string;
+          user_id: string;
+        };
+        Update: {
+          calories?: number;
+          created_at?: string;
+          date?: string;
+          id?: string;
+          name?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       user_gemini_keys: {
         Row: {
           ciphertext: string;

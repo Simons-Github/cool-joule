@@ -5,6 +5,7 @@ import {
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -27,6 +28,7 @@ import {
   type Gender,
   type Goal,
 } from "@/lib/nutrition";
+import { aggregateDailyNutrition, nutritionInsights } from "@/lib/food-log";
 import { APP_NAME } from "@/lib/app-config";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,6 +72,34 @@ function ProgressPage() {
         .select("*")
         .eq("user_id", user.id)
         .order("date", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const from = addDays(todayISO(), -range);
+  const nutritionFood = useQuery({
+    queryKey: ["food_logs", user.id, "range", from],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("food_logs")
+        .select("date, calories, protein, carbs, fat")
+        .eq("user_id", user.id)
+        .gte("date", from)
+        .lte("date", todayISO());
+      if (error) throw error;
+      return data;
+    },
+  });
+  const nutritionExercise = useQuery({
+    queryKey: ["exercise_logs", user.id, "range", from],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("exercise_logs")
+        .select("date, calories")
+        .eq("user_id", user.id)
+        .gte("date", from)
+        .lte("date", todayISO());
       if (error) throw error;
       return data;
     },
@@ -164,6 +194,48 @@ function ProgressPage() {
       },
     ];
   }, [weights.data, targetWeight]);
+
+  const dailyNutrition = useMemo(
+    () =>
+      aggregateDailyNutrition(
+        nutritionFood.data ?? [],
+        nutritionExercise.data ?? [],
+        from,
+        todayISO(),
+      ),
+    [nutritionFood.data, nutritionExercise.data, from],
+  );
+  const calorieTarget = profile.data?.daily_calories ?? 2000;
+  const insights = useMemo(
+    () => nutritionInsights(dailyNutrition, calorieTarget),
+    [dailyNutrition, calorieTarget],
+  );
+  const nutritionChart = useMemo(
+    () =>
+      dailyNutrition
+        .filter((day) => day.hasFood)
+        .map((day) => ({
+          date: fromISO(day.date).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" }),
+          kcal: Math.round(day.calories),
+          target: calorieTarget,
+        })),
+    [dailyNutrition, calorieTarget],
+  );
+  const nutritionCards = [
+    {
+      label: "Ø kcal",
+      value: insights.avgCalories !== null ? String(insights.avgCalories) : "—",
+    },
+    {
+      label: "Ø Eiweiß",
+      value: insights.avgProtein !== null ? `${insights.avgProtein} g` : "—",
+    },
+    {
+      label: "Tage im Ziel",
+      value: `${insights.daysInTarget} / ${insights.loggedDays}`,
+    },
+    { label: "Streak", value: insights.streak > 0 ? `${insights.streak} Tage` : "—" },
+  ];
 
   const isLoading = profile.isLoading || weights.isLoading;
   const hasError = profile.isError || weights.isError;
@@ -297,6 +369,70 @@ function ProgressPage() {
                     <Line
                       type="monotone"
                       dataKey="kg"
+                      stroke="var(--primary)"
+                      strokeWidth={2.5}
+                      dot={{ r: 3, fill: "var(--primary)" }}
+                      activeDot={{ r: 5 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {nutritionCards.map((c) => (
+              <div key={c.label} className="rounded-3xl bg-white p-4 shadow-md shadow-rose-50">
+                <p className="text-xs text-slate-400">{c.label}</p>
+                <p className="mt-1 text-xl font-semibold tabular-nums text-slate-800">{c.value}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 rounded-3xl bg-white p-5 shadow-lg shadow-rose-50">
+            <h2 className="mb-1 font-semibold text-slate-800">Kalorienverlauf</h2>
+            <p className="mb-4 text-xs text-slate-400">
+              Gegessen vs. Ziel (±10 % zählt als im Ziel) · letzte {range} Tage
+            </p>
+            {nutritionChart.length === 0 ? (
+              <p className="py-12 text-center text-sm text-slate-400">
+                Noch keine Ernährungseinträge in diesem Zeitraum.
+              </p>
+            ) : (
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={nutritionChart}
+                    margin={{ top: 8, right: 8, bottom: 0, left: -18 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.94 0.01 50)" />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 12, fill: "oklch(0.55 0.022 255)" }}
+                      stroke="oklch(0.91 0.012 50)"
+                    />
+                    <YAxis
+                      tick={{ fontSize: 12, fill: "oklch(0.55 0.022 255)" }}
+                      stroke="oklch(0.91 0.012 50)"
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        background: "#ffffff",
+                        border: "none",
+                        borderRadius: 16,
+                        boxShadow: "0 10px 40px rgba(244,63,94,0.12)",
+                        color: "oklch(0.28 0.022 255)",
+                      }}
+                    />
+                    <ReferenceLine
+                      y={calorieTarget}
+                      stroke="oklch(0.7 0.02 255)"
+                      strokeDasharray="4 4"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="kcal"
+                      name="Gegessen"
                       stroke="var(--primary)"
                       strokeWidth={2.5}
                       dot={{ r: 3, fill: "var(--primary)" }}

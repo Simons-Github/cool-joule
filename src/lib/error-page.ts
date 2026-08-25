@@ -7,6 +7,9 @@ export function renderErrorPage(): string {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" href="/favicon.png" type="image/png" />
     <link rel="apple-touch-icon" href="/favicon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#f43f5e" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
     <style>
       body { font: 15px/1.5 system-ui, -apple-system, sans-serif; background: #fafafa; color: #111; display: grid; place-items: center; min-height: 100vh; margin: 0; padding: 1.5rem; }
       .card { max-width: 28rem; width: 100%; text-align: center; padding: 2rem; }
