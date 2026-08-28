@@ -54,7 +54,10 @@ function AuthPage() {
       }
       if (recoveringRef.current) return;
       if (session && (event === "SIGNED_IN" || event === "INITIAL_SESSION")) {
-        navigate({ to: "/tagebuch", replace: true });
+        // Defer: navigating into /tagebuch runs getUser() and would deadlock supabase-js.
+        setTimeout(() => {
+          void navigate({ to: "/tagebuch", replace: true });
+        }, 0);
       }
     });
 
