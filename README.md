@@ -37,20 +37,20 @@ Deutschsprachiges Ernährungstagebuch zum Tracken von Kalorien, Makros und Gewic
 
 ## Screenshots
 
-| Landing | Login |
-| :-----: | :---: |
+|                                    Landing                                     |                                Login                                 |
+| :----------------------------------------------------------------------------: | :------------------------------------------------------------------: |
 | <img src="./public/screenshots/heropage.png" alt="Landing page" width="640" /> | <img src="./public/screenshots/login.png" alt="Login" width="640" /> |
-| Hero & Auth | E-Mail / Passwort & Google |
+|                                  Hero & Auth                                   |                      E-Mail / Passwort & Google                      |
 
-| Tagebuch | Lebensmittel hinzufügen |
-| :------: | :---------------------: |
+|                                  Tagebuch                                   |                                  Lebensmittel hinzufügen                                   |
+| :-------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------: |
 | <img src="./public/screenshots/tagebuch1.png" alt="Tagebuch" width="640" /> | <img src="./public/screenshots/tagebuch2.png" alt="Lebensmittel hinzufügen" width="640" /> |
-| Kalorien, Makros & Mahlzeiten | Suche, Barcode & eigene Foods |
+|                        Kalorien, Makros & Mahlzeiten                        |                               Suche, Barcode & eigene Foods                                |
 
-| Fortschritt | Profil |
-| :---------: | :----: |
+|                                   Fortschritt                                    |                                 Profil                                 |
+| :------------------------------------------------------------------------------: | :--------------------------------------------------------------------: |
 | <img src="./public/screenshots/fortschritt.png" alt="Fortschritt" width="640" /> | <img src="./public/screenshots/profil.png" alt="Profil" width="640" /> |
-| Gewichtsverlauf & Stats | Ziele & Körperdaten |
+|                             Gewichtsverlauf & Stats                              |                          Ziele & Körperdaten                           |
 
 ---
 
@@ -78,17 +78,17 @@ Beim ersten Login berechnet ein Onboarding-Wizard (Mifflin-St Jeor) individuelle
 
 ## Tech Stack
 
-| Bereich | Technologie |
-| ------- | ----------- |
-| Frontend | React 19, TypeScript, TanStack Router/Start/Query |
-| Styling | Tailwind CSS 4, shadcn/ui, Lucide |
-| Charts | Recharts |
-| Backend | Supabase (PostgreSQL, Auth, RLS) + TanStack Start Server Functions |
-| KI | Google Gemini (User-Key oder Owner-App-Key / AI Gateway) |
-| Externe APIs | Open Food Facts, Strava |
-| Tooling | Vite, Vitest, ESLint, Prettier |
-| CI | GitHub Actions (Node 22) |
-| Hosting | Vercel |
+| Bereich      | Technologie                                                        |
+| ------------ | ------------------------------------------------------------------ |
+| Frontend     | React 19, TypeScript, TanStack Router/Start/Query                  |
+| Styling      | Tailwind CSS 4, shadcn/ui, Lucide                                  |
+| Charts       | Recharts                                                           |
+| Backend      | Supabase (PostgreSQL, Auth, RLS) + TanStack Start Server Functions |
+| KI           | Google Gemini (User-Key oder Owner-App-Key / AI Gateway)           |
+| Externe APIs | Open Food Facts, Strava                                            |
+| Tooling      | Vite, Vitest, ESLint, Prettier                                     |
+| CI           | GitHub Actions (Node 22)                                           |
+| Hosting      | Vercel                                                             |
 
 ---
 
@@ -109,33 +109,33 @@ Strava
 
 TDEE-Berechnung und Tagebuch-CRUD laufen im Client gegen Supabase (RLS). Kostenpflichtige oder geheime Operationen (Gemini, Secret-Key, Open-Food-Facts-User-Agent, Strava-Tokens, Webhook-Tokens) laufen in Server Functions. JWT wird per `Authorization: Bearer` angehängt und serverseitig mit `auth.getUser` geprüft.
 
-Der Kurzbefehl-Webhook ist eine öffentliche POST-Route mit persönlichem Token (kein Session-Cookie). Der Strava-Webhook ist öffentlich HTTPS, aber nur mit `STRAVA_WEBHOOK_VERIFY_TOKEN` / optionaler Subscription-ID gültig.
+Der Kurzbefehl-Webhook ist eine öffentliche POST-Route mit persönlichem Token (kein Session-Cookie). Der Strava-Webhook ist öffentlich HTTPS; der GET-Handshake braucht `STRAVA_WEBHOOK_VERIFY_TOKEN`, Event-POSTs brauchen `STRAVA_WEBHOOK_SUBSCRIPTION_ID` (fail-closed). Disconnect und Delete werden erst nach einem Check bei Strava ausgeführt.
 
 ---
 
 ## Features im Detail
 
-| Feature | Status |
-| ------- | ------ |
-| Login / Registrierung (E-Mail, Google) | ✅ |
-| Passwort zurücksetzen | ✅ |
-| Multi-Step-Onboarding mit TDEE & Makros | ✅ |
-| Tagebuch (Frühstück, Mittag, Abend, Snacks) | ✅ |
-| Open Food Facts Textsuche | ✅ |
-| Barcode-Lookup + Kamera-Scan | ✅ |
-| KI-Fotoanalyse | ✅ |
-| Eigene Lebensmittel anlegen, bearbeiten und löschen | ✅ |
-| Zuletzt verwendet + Vortag/Mahlzeit kopieren | ✅ |
-| Einträge bearbeiten + Löschen rückgängig | ✅ |
-| Schnellerfassen (kcal ohne Datenbank) | ✅ |
-| Gewichtsverlauf & Chart | ✅ |
-| Kalorienverlauf, Ziel-Tage und Streak | ✅ |
-| Aktivität / Sport-Kalorien im Tagebuch | ✅ |
-| Strava-Import (OAuth, Sync, Webhook) | ✅ |
-| Apple-Kurzbefehl-Webhook (Watch-Workouts) | ✅ |
-| PWA (Homescreen, ohne Offline-Sync) | ✅ |
-| Profil & Ziele bearbeiten | ✅ |
-| Datenexport / Konto löschen | ✅ |
+| Feature                                             | Status |
+| --------------------------------------------------- | ------ |
+| Login / Registrierung (E-Mail, Google)              | ✅     |
+| Passwort zurücksetzen                               | ✅     |
+| Multi-Step-Onboarding mit TDEE & Makros             | ✅     |
+| Tagebuch (Frühstück, Mittag, Abend, Snacks)         | ✅     |
+| Open Food Facts Textsuche                           | ✅     |
+| Barcode-Lookup + Kamera-Scan                        | ✅     |
+| KI-Fotoanalyse                                      | ✅     |
+| Eigene Lebensmittel anlegen, bearbeiten und löschen | ✅     |
+| Zuletzt verwendet + Vortag/Mahlzeit kopieren        | ✅     |
+| Einträge bearbeiten + Löschen rückgängig            | ✅     |
+| Schnellerfassen (kcal ohne Datenbank)               | ✅     |
+| Gewichtsverlauf & Chart                             | ✅     |
+| Kalorienverlauf, Ziel-Tage und Streak               | ✅     |
+| Aktivität / Sport-Kalorien im Tagebuch              | ✅     |
+| Strava-Import (OAuth, Sync, Webhook)                | ✅     |
+| Apple-Kurzbefehl-Webhook (Watch-Workouts)           | ✅     |
+| PWA (Homescreen, ohne Offline-Sync)                 | ✅     |
+| Profil & Ziele bearbeiten                           | ✅     |
+| Datenexport / Konto löschen                         | ✅     |
 
 ---
 
@@ -214,7 +214,7 @@ Beim Verbinden: Import der letzten 14 Tage. Danach Auto-Sync beim Öffnen des Ta
 
 - Callback: `https://<domain>/api/strava/webhook`
 - `STRAVA_WEBHOOK_VERIFY_TOKEN` — dieselbe Zeichenkette wie beim Anlegen der Push-Subscription
-- Optional `STRAVA_WEBHOOK_SUBSCRIPTION_ID` — fremde POSTs ignorieren
+- `STRAVA_WEBHOOK_SUBSCRIPTION_ID` — **Pflicht** für Event-POSTs; ohne ID oder bei Abweichung antwortet die App mit 403. Disconnect/Delete erst nach Bestätigung bei Strava. Rate-Limit pro IP und User.
 
 Ohne Webhook reicht der Sync über Tagebuch und Profil.
 
@@ -248,43 +248,43 @@ Die signierte `.shortcut`-Datei nach Änderungen an `shortcuts/cool-joule-workou
 
 ### Scripts
 
-| Befehl | Beschreibung |
-| ------- | ----------- |
-| `npm run dev` | Dev-Server starten |
-| `npm test` | Vitest Unit-Tests |
-| `npm run test:watch` | Vitest im Watch-Modus |
-| `npm run lint` | ESLint inkl. Prettier-Check |
-| `npm run format` | Prettier schreibt Dateien um |
-| `npm run build` | Production-Build |
-| `npm run preview` | Production-Build lokal ausliefern |
+| Befehl               | Beschreibung                      |
+| -------------------- | --------------------------------- |
+| `npm run dev`        | Dev-Server starten                |
+| `npm test`           | Vitest Unit-Tests                 |
+| `npm run test:watch` | Vitest im Watch-Modus             |
+| `npm run lint`       | ESLint inkl. Prettier-Check       |
+| `npm run format`     | Prettier schreibt Dateien um      |
+| `npm run build`      | Production-Build                  |
+| `npm run preview`    | Production-Build lokal ausliefern |
 
 ### Troubleshooting
 
-| Symptom | Typische Ursache |
-| ------- | ---------------- |
-| Google-Login bricht ab | Redirect-URL `/auth` fehlt in Supabase |
-| Strava-Connect landet nicht zurück | Callback-Domain passt nicht zur App (localhost vs. Production) oder `/strava/callback` fehlt |
-| „Strava ist nicht konfiguriert“ | `STRAVA_CLIENT_ID` / `STRAVA_CLIENT_SECRET` fehlen auf diesem Host |
+| Symptom                                         | Typische Ursache                                                                                              |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Google-Login bricht ab                          | Redirect-URL `/auth` fehlt in Supabase                                                                        |
+| Strava-Connect landet nicht zurück              | Callback-Domain passt nicht zur App (localhost vs. Production) oder `/strava/callback` fehlt                  |
+| „Strava ist nicht konfiguriert“                 | `STRAVA_CLIENT_ID` / `STRAVA_CLIENT_SECRET` fehlen auf diesem Host                                            |
 | Fotoanalyse / Tokens / Kurzbefehl schlagen fehl | `SUPABASE_SECRET_KEY` oder `USER_SECRETS_ENCRYPTION_KEY` fehlt bzw. weicht zwischen Preview und Production ab |
-| Kurzbefehl 401 | Token neu erzeugt, alte URL noch im Kurzbefehl |
-| Kurzbefehl lässt sich nicht importieren | Datei ist signiert; auf dem iPhone in der App Kurzbefehle öffnen |
+| Kurzbefehl 401                                  | Token neu erzeugt, alte URL noch im Kurzbefehl                                                                |
+| Kurzbefehl lässt sich nicht importieren         | Datei ist signiert; auf dem iPhone in der App Kurzbefehle öffnen                                              |
 
 ---
 
 ## Datenbank
 
-| Tabelle | Zweck |
-| ------- | ----- |
-| `profiles` | Körperdaten, Ziele, Makros, Onboarding-Status |
-| `food_logs` | Tägliche Mahlzeit-Einträge |
-| `exercise_logs` | Sport/Aktivitäten mit kcal pro Tag (`source`: `manual` / `shortcut` / `strava`) |
-| `shortcut_tokens` | Gehashte Apple-Kurzbefehl-Webhook-Tokens (nur service_role) |
-| `strava_connections` | Verschlüsselte Strava-OAuth-Tokens (nur service_role) |
-| `weight_logs` | Gewicht pro Tag |
-| `custom_foods` | Nutzerdefinierte Lebensmittel |
-| `user_gemini_keys` | Verschlüsselte User-Gemini-Keys (nur service_role) |
-| `food_photo_server_usage` | 5/24h-Quota für den App-Key (Allowlist, nur service_role) |
-| `server_rate_limits` | Rate-Limits für Server Functions (nur service_role) |
+| Tabelle                   | Zweck                                                                           |
+| ------------------------- | ------------------------------------------------------------------------------- |
+| `profiles`                | Körperdaten, Ziele, Makros, Onboarding-Status                                   |
+| `food_logs`               | Tägliche Mahlzeit-Einträge                                                      |
+| `exercise_logs`           | Sport/Aktivitäten mit kcal pro Tag (`source`: `manual` / `shortcut` / `strava`) |
+| `shortcut_tokens`         | Gehashte Apple-Kurzbefehl-Webhook-Tokens (nur service_role)                     |
+| `strava_connections`      | Verschlüsselte Strava-OAuth-Tokens (nur service_role)                           |
+| `weight_logs`             | Gewicht pro Tag                                                                 |
+| `custom_foods`            | Nutzerdefinierte Lebensmittel                                                   |
+| `user_gemini_keys`        | Verschlüsselte User-Gemini-Keys (nur service_role)                              |
+| `food_photo_server_usage` | 5/24h-Quota für den App-Key (Allowlist, nur service_role)                       |
+| `server_rate_limits`      | Rate-Limits für Server Functions (nur service_role)                             |
 
 Nutzerdaten-Tabellen haben **Row Level Security** (`auth.uid()` = eigener Datensatz). Key-/Quota-/Rate-Limit-Tabellen sind dem Client entzogen.
 
@@ -323,7 +323,7 @@ Die App wird über Vercel unter [cool-joule.vercel.app](https://cool-joule.verce
 - [ ] `GEMINI_API_KEY` und/oder `AI_GATEWAY_API_KEY` (oder `FOOD_PHOTO_USE_AI_GATEWAY=true` bei bewusst aktiviertem OIDC-Gateway)
 - [ ] `FOOD_PHOTO_APP_KEY_USER_IDS` / `FOOD_PHOTO_APP_KEY_EMAILS` auf die Allowlist-Accounts
 - [ ] `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `STRAVA_REDIRECT_URI` (Production-Callback)
-- [ ] Optional: `STRAVA_WEBHOOK_VERIFY_TOKEN` und `STRAVA_WEBHOOK_SUBSCRIPTION_ID`
+- [ ] `STRAVA_WEBHOOK_VERIFY_TOKEN` und `STRAVA_WEBHOOK_SUBSCRIPTION_ID` (letzteres Pflicht, sonst 403 auf Event-POSTs)
 - [ ] Auth-Redirects inkl. `/auth` (Recovery) und `/strava/callback`
 - [ ] Leaked-Password-Protection im Supabase-Dashboard
 - [ ] Migrationen auf dem Cool-Joule-Projekt angewendet (inkl. `strava_connections` und `shortcut_tokens`)

@@ -387,6 +387,55 @@ export function webhookAction(event: StravaWebhookEvent): StravaWebhookAction {
   return { type: "ignore" };
 }
 
+export type StravaWebhookProbe = "authorized" | "revoked" | "exists" | "missing" | "unavailable";
+
+export type WebhookConnectionDecision = "drop" | "keep" | "retry";
+export type WebhookActivityDeleteDecision = "delete" | "ignore" | "retry";
+export type StravaWebhookHttpStatus = 200 | 400 | 403 | 429 | 503;
+
+export function webhookSubscriptionIdFromBody(body: unknown): number | null {
+  if (!body || typeof body !== "object") return null;
+  const value = (body as Record<string, unknown>)["subscription_id"];
+  if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) return null;
+  return value;
+}
+
+export function isWebhookSubscriptionAuthorized(
+  eventSubscriptionId: number | null,
+  expected: string | undefined,
+): boolean {
+  const want = expected?.trim();
+  if (!want || eventSubscriptionId == null) return false;
+  return timingSafeEqual(String(eventSubscriptionId), want);
+}
+
+export function requestClientIp(headers: Headers): string {
+  const forwarded = headers.get("x-forwarded-for");
+  if (forwarded) {
+    const first = forwarded.split(",")[0]?.trim();
+    if (first) return first;
+  }
+  const realIp = headers.get("x-real-ip")?.trim();
+  if (realIp) return realIp;
+  return "unknown";
+}
+
+export function shouldDropConnectionFromWebhook(
+  athleteStatus: Extract<StravaWebhookProbe, "authorized" | "revoked" | "unavailable">,
+): WebhookConnectionDecision {
+  if (athleteStatus === "revoked") return "drop";
+  if (athleteStatus === "authorized") return "keep";
+  return "retry";
+}
+
+export function shouldDeleteLocalActivityFromWebhook(
+  activityStatus: Extract<StravaWebhookProbe, "exists" | "missing" | "revoked" | "unavailable">,
+): WebhookActivityDeleteDecision {
+  if (activityStatus === "missing") return "delete";
+  if (activityStatus === "unavailable") return "retry";
+  return "ignore";
+}
+
 export function parseWebhookEvent(body: unknown): StravaWebhookEvent | null {
   if (!body || typeof body !== "object") return null;
   const value = body as Record<string, unknown>;

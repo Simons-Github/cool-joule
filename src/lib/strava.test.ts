@@ -13,12 +13,17 @@ import {
   mapStravaActivityToLog,
   parseOAuthState,
   parseWebhookEvent,
+  requestClientIp,
   resolveActivityCalories,
+  shouldDeleteLocalActivityFromWebhook,
+  shouldDropConnectionFromWebhook,
   shouldImportActivity,
   sportLabel,
   unixSecondsAfterDaysAgo,
   webhookAction,
+  webhookSubscriptionIdFromBody,
   withIgnoredExternalId,
+  isWebhookSubscriptionAuthorized,
 } from "./strava";
 
 const KEY = Buffer.from("test-strava-hmac-secret-key-32b!");
@@ -193,5 +198,38 @@ describe("webhook events", () => {
       athleteName: null,
       lastSyncedAt: null,
     });
+  });
+
+  it("rejects missing, zero, or mismatched subscription ids (fail-closed)", () => {
+    expect(webhookSubscriptionIdFromBody({ subscription_id: 42 })).toBe(42);
+    expect(webhookSubscriptionIdFromBody({ subscription_id: 0 })).toBeNull();
+    expect(webhookSubscriptionIdFromBody({ subscription_id: "42" })).toBeNull();
+    expect(webhookSubscriptionIdFromBody(null)).toBeNull();
+    expect(isWebhookSubscriptionAuthorized(42, undefined)).toBe(false);
+    expect(isWebhookSubscriptionAuthorized(42, "  ")).toBe(false);
+    expect(isWebhookSubscriptionAuthorized(null, "42")).toBe(false);
+    expect(isWebhookSubscriptionAuthorized(42, "42")).toBe(true);
+    expect(isWebhookSubscriptionAuthorized(42, "43")).toBe(false);
+  });
+
+  it("drops a connection only after Strava confirms the token is revoked", () => {
+    expect(shouldDropConnectionFromWebhook("revoked")).toBe("drop");
+    expect(shouldDropConnectionFromWebhook("authorized")).toBe("keep");
+    expect(shouldDropConnectionFromWebhook("unavailable")).toBe("retry");
+  });
+
+  it("deletes a local activity only when Strava says it is gone", () => {
+    expect(shouldDeleteLocalActivityFromWebhook("missing")).toBe("delete");
+    expect(shouldDeleteLocalActivityFromWebhook("exists")).toBe("ignore");
+    expect(shouldDeleteLocalActivityFromWebhook("revoked")).toBe("ignore");
+    expect(shouldDeleteLocalActivityFromWebhook("unavailable")).toBe("retry");
+  });
+
+  it("reads the client IP from forwarded headers", () => {
+    expect(requestClientIp(new Headers({ "x-forwarded-for": " 1.2.3.4, 10.0.0.1" }))).toBe(
+      "1.2.3.4",
+    );
+    expect(requestClientIp(new Headers({ "x-real-ip": "5.6.7.8" }))).toBe("5.6.7.8");
+    expect(requestClientIp(new Headers())).toBe("unknown");
   });
 });

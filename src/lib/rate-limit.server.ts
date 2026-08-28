@@ -3,9 +3,12 @@ import {
   RATE_LIMITED_MESSAGE,
   RATE_LIMIT_ACTIONS,
   RateLimitError,
+  claimFixedWindow,
   type RateLimitAction,
 } from "@/lib/rate-limit";
 import { logServerError } from "@/lib/server-auth";
+
+const memoryRateLimits = new Map<string, { startedAt: number; count: number }>();
 
 export async function enforceRateLimit(userId: string, action: RateLimitAction): Promise<void> {
   const { maxCount, windowSeconds } = RATE_LIMIT_ACTIONS[action];
@@ -31,6 +34,11 @@ export async function enforceRateLimit(userId: string, action: RateLimitAction):
   }
 
   if (allowed) return;
+  throw new RateLimitError(RATE_LIMITED_MESSAGE);
+}
+
+export function enforceMemoryRateLimit(key: string, maxCount: number, windowSeconds: number): void {
+  if (claimFixedWindow(memoryRateLimits, key, maxCount, windowSeconds)) return;
   throw new RateLimitError(RATE_LIMITED_MESSAGE);
 }
 

@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { decryptSecret, encryptSecret, parseEncryptionKey } from "@/lib/secret-box";
-import { RateLimitError } from "@/lib/rate-limit";
+import { RateLimitError, STRAVA_WEBHOOK_IP_LIMIT } from "@/lib/rate-limit";
 import { logServerError } from "@/lib/server-auth";
 import {
   STRAVA_API_BASE,
@@ -17,14 +17,22 @@ import {
   mapStravaActivityToLog,
   parseOAuthState,
   parseWebhookEvent,
+  requestClientIp,
+  shouldDeleteLocalActivityFromWebhook,
+  shouldDropConnectionFromWebhook,
   shouldImportActivity,
   unixSecondsAfterDaysAgo,
   webhookAction,
+  webhookSubscriptionIdFromBody,
   withIgnoredExternalId,
+  isWebhookSubscriptionAuthorized,
+  timingSafeEqual,
   type MappedExerciseLog,
   type StravaActivityLike,
   type StravaStatus,
   type StravaSyncResult,
+  type StravaWebhookHttpStatus,
+  type StravaWebhookProbe,
 } from "@/lib/strava";
 
 const AUTH_MESSAGE = "Bitte anmelden, um Strava zu verbinden.";
@@ -134,7 +142,7 @@ async function requireUserId(): Promise<string> {
 
 async function enforceStravaLimit(
   userId: string,
-  action: "strava_connect" | "strava_sync",
+  action: "strava_connect" | "strava_sync" | "strava_webhook",
 ): Promise<void> {
   const { enforceRateLimit } = await import("@/lib/rate-limit.server");
   try {
@@ -711,50 +719,156 @@ async function upsertSingleActivity(row: ConnectionRow, activityId: number): Pro
   );
 }
 
-export async function handleStravaWebhookEvent(body: unknown): Promise<void> {
-  const event = parseWebhookEvent(body);
-  if (!event) return;
-  const expectedSubscription = process.env["STRAVA_WEBHOOK_SUBSCRIPTION_ID"]?.trim();
-  if (expectedSubscription && String(event.subscription_id) !== expectedSubscription) {
-    return;
+export async function handleStravaWebhookEvent(request: Request): Promise<StravaWebhookHttpStatus> {
+  try {
+    const { enforceMemoryRateLimit } = await import("@/lib/rate-limit.server");
+    enforceMemoryRateLimit(
+      `strava_webhook:${requestClientIp(request.headers)}`,
+      STRAVA_WEBHOOK_IP_LIMIT.maxCount,
+      STRAVA_WEBHOOK_IP_LIMIT.windowSeconds,
+    );
+  } catch (error) {
+    if (error instanceof RateLimitError) return 429;
+    throw error;
   }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return 400;
+  }
+  if (!body || typeof body !== "object") return 400;
+
+  const expectedSubscription = process.env["STRAVA_WEBHOOK_SUBSCRIPTION_ID"]?.trim();
+  if (!isWebhookSubscriptionAuthorized(webhookSubscriptionIdFromBody(body), expectedSubscription)) {
+    return 403;
+  }
+
+  const event = parseWebhookEvent(body);
+  if (!event) return 200;
+
   const action = webhookAction(event);
-  if (action.type === "ignore") return;
+  if (action.type === "ignore") return 200;
 
   if (action.type === "disconnect") {
-    const admin = await getAdmin();
-    const { error } = await admin
-      .from("strava_connections")
-      .delete()
-      .eq("athlete_id", action.athleteId);
-    if (error) logServerError(error);
-    return;
+    return applyWebhookDisconnect(action.athleteId);
   }
 
   const row = await loadConnectionByAthlete(action.athleteId);
-  if (!row) return;
+  if (!row) return 200;
+
+  const limited = await limitWebhookUser(row.user_id);
+  if (limited) return limited;
 
   if (action.type === "delete_activity") {
-    const admin = await getAdmin();
-    const { error } = await admin
-      .from("exercise_logs")
-      .delete()
-      .eq("user_id", row.user_id)
-      .eq("source", "strava")
-      .eq("external_id", String(action.activityId));
-    if (error) logServerError(error);
-    return;
+    return applyWebhookActivityDelete(row, action.activityId);
   }
 
   try {
     await upsertSingleActivity(row, action.activityId);
   } catch (error) {
+    if (error instanceof StravaError && error.code === "SYNC_FAILED") return 503;
     logServerError(error);
+  }
+  return 200;
+}
+
+async function limitWebhookUser(userId: string): Promise<429 | null> {
+  try {
+    await enforceStravaLimit(userId, "strava_webhook");
+    return null;
+  } catch (error) {
+    if (
+      error instanceof RateLimitError ||
+      (error instanceof StravaError && error.code === "RATE_LIMITED")
+    ) {
+      return 429;
+    }
+    throw error;
+  }
+}
+
+async function applyWebhookDisconnect(athleteId: number): Promise<StravaWebhookHttpStatus> {
+  const row = await loadConnectionByAthlete(athleteId);
+  if (!row) return 200;
+
+  const limited = await limitWebhookUser(row.user_id);
+  if (limited) return limited;
+
+  const decision = shouldDropConnectionFromWebhook(await probeAthleteAuthorization(row));
+  if (decision === "keep") return 200;
+  if (decision === "retry") return 503;
+
+  const admin = await getAdmin();
+  const { error } = await admin.from("strava_connections").delete().eq("athlete_id", athleteId);
+  if (error) {
+    logServerError(error);
+    return 503;
+  }
+  return 200;
+}
+
+async function applyWebhookActivityDelete(
+  row: ConnectionRow,
+  activityId: number,
+): Promise<StravaWebhookHttpStatus> {
+  const decision = shouldDeleteLocalActivityFromWebhook(
+    await probeActivityPresence(row, activityId),
+  );
+  if (decision === "ignore") return 200;
+  if (decision === "retry") return 503;
+
+  const admin = await getAdmin();
+  const { error } = await admin
+    .from("exercise_logs")
+    .delete()
+    .eq("user_id", row.user_id)
+    .eq("source", "strava")
+    .eq("external_id", String(activityId));
+  if (error) {
+    logServerError(error);
+    return 503;
+  }
+  return 200;
+}
+
+async function probeAthleteAuthorization(
+  row: ConnectionRow,
+): Promise<Extract<StravaWebhookProbe, "authorized" | "revoked" | "unavailable">> {
+  try {
+    const refreshed = await refreshTokens(row);
+    const response = await stravaApiGet("/athlete", refreshed.accessToken);
+    if (response.ok) return "authorized";
+    if (response.status === 401 || response.status === 403) return "revoked";
+    return "unavailable";
+  } catch (error) {
+    if (error instanceof StravaError && error.code === "NOT_CONNECTED") return "revoked";
+    logServerError(error);
+    return "unavailable";
+  }
+}
+
+async function probeActivityPresence(
+  row: ConnectionRow,
+  activityId: number,
+): Promise<Extract<StravaWebhookProbe, "exists" | "missing" | "revoked" | "unavailable">> {
+  try {
+    const refreshed = await refreshTokens(row);
+    const response = await stravaApiGet(`/activities/${activityId}`, refreshed.accessToken);
+    if (response.status === 404) return "missing";
+    if (response.status === 401 || response.status === 403) return "revoked";
+    if (response.ok) return "exists";
+    return "unavailable";
+  } catch (error) {
+    if (error instanceof StravaError && error.code === "NOT_CONNECTED") return "revoked";
+    logServerError(error);
+    return "unavailable";
   }
 }
 
 export function verifyWebhookToken(verifyToken: string | null): boolean {
   const expected = process.env["STRAVA_WEBHOOK_VERIFY_TOKEN"]?.trim();
   if (!expected || !verifyToken) return false;
-  return verifyToken === expected;
+  return timingSafeEqual(verifyToken, expected);
 }
