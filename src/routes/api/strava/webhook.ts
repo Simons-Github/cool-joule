@@ -1,4 +1,21 @@
 import { createFileRoute } from "@tanstack/react-router";
+import type { StravaWebhookHttpStatus } from "@/lib/strava";
+
+function webhookResponse(status: StravaWebhookHttpStatus): Response {
+  const body =
+    status === 200
+      ? "OK"
+      : status === 400
+        ? "Bad Request"
+        : status === 429
+          ? "Too Many Requests"
+          : status === 503
+            ? "Service Unavailable"
+            : "Forbidden";
+  const headers = new Headers();
+  if (status === 429) headers.set("Retry-After", "60");
+  return new Response(body, { status, headers });
+}
 
 export const Route = createFileRoute("/api/strava/webhook")({
   server: {
@@ -12,18 +29,11 @@ export const Route = createFileRoute("/api/strava/webhook")({
         if (mode === "subscribe" && challenge && verifyWebhookToken(token)) {
           return Response.json({ "hub.challenge": challenge });
         }
-        return new Response("Forbidden", { status: 403 });
+        return webhookResponse(403);
       },
       POST: async ({ request }) => {
         const { handleStravaWebhookEvent } = await import("@/lib/strava.server");
-        let body: unknown;
-        try {
-          body = await request.json();
-        } catch {
-          return new Response("Bad Request", { status: 400 });
-        }
-        await handleStravaWebhookEvent(body);
-        return new Response("OK");
+        return webhookResponse(await handleStravaWebhookEvent(request));
       },
     },
   },
