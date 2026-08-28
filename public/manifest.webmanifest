@@ -3,7 +3,7 @@
   "short_name": "Cool Joule",
   "lang": "de",
   "description": "Ernährungstagebuch für Kalorien, Makros und Gewicht",
-  "start_url": "/",
+  "start_url": "/tagebuch",
   "scope": "/",
   "display": "standalone",
   "background_color": "#fff1f2",

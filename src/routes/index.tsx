@@ -1,7 +1,15 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { APP_NAME } from "@/lib/app-config";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/")({
+  beforeLoad: async () => {
+    // Session lives in localStorage — skip on the server to keep the landing page SSR'd.
+    if (typeof window === "undefined") return;
+    const { data } = await supabase.auth.getSession();
+    if (data.session) throw redirect({ to: "/tagebuch" });
+  },
   head: () => ({
     meta: [
       { title: `${APP_NAME} — Kalorien & Makros einfach tracken` },
@@ -20,6 +28,21 @@ export const Route = createFileRoute("/")({
 });
 
 function Landing() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!session || (event !== "SIGNED_IN" && event !== "INITIAL_SESSION")) return;
+      // Defer: calling other supabase-js methods inside onAuthStateChange deadlocks the client.
+      setTimeout(() => {
+        void navigate({ to: "/tagebuch", replace: true });
+      }, 0);
+    });
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+
   return (
     <div className="relative flex min-h-screen flex-col overflow-hidden">
       {/* Background blobs */}
