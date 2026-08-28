@@ -1,4 +1,6 @@
 export const SHORTCUT_EXERCISE_PATH = "/api/shortcuts/exercise";
+export const SHORTCUT_FILE_PATH = "/shortcuts/cool-joule-workout.shortcut";
+export const SHORTCUT_FILE_DOWNLOAD_NAME = "Cool Joule.shortcut";
 export const MAX_SHORTCUT_NAME_LENGTH = 120;
 
 export type ShortcutTokenStatus = {
@@ -43,6 +45,18 @@ export function shortcutTokenSuffix(token: string): string {
 export function buildShortcutWebhookUrl(origin: string, token: string): string {
   const base = origin.replace(/\/$/, "");
   return `${base}${SHORTCUT_EXERCISE_PATH}?token=${encodeURIComponent(token)}`;
+}
+
+export function buildShortcutFileUrl(origin: string): string {
+  return `${origin.replace(/\/$/, "")}${SHORTCUT_FILE_PATH}`;
+}
+
+export function buildShortcutInstallUrl(origin: string, name = "Cool Joule"): string {
+  const params = new URLSearchParams({
+    url: buildShortcutFileUrl(origin),
+    name,
+  });
+  return `shortcuts://import-shortcut?${params.toString()}`;
 }
 
 export function extractShortcutToken(request: Request): string | null {

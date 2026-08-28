@@ -1,26 +1,30 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy } from "lucide-react";
+import { Copy, Download } from "lucide-react";
 import { toast } from "sonner";
 import {
   createShortcutToken,
   deleteShortcutToken,
   getShortcutTokenStatus,
 } from "@/lib/shortcut-connect";
-import { buildShortcutWebhookUrl, getShortcutErrorMessage } from "@/lib/shortcut";
+import {
+  SHORTCUT_FILE_DOWNLOAD_NAME,
+  buildShortcutFileUrl,
+  buildShortcutInstallUrl,
+  buildShortcutWebhookUrl,
+  getShortcutErrorMessage,
+} from "@/lib/shortcut";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const SHORTCUT_STATUS_QUERY = ["shortcut-token-status"] as const;
 
-const JSON_BODY_EXAMPLE = `{
-  "name": "Laufen",
-  "calories": 380,
-  "date": "2026-08-25"
-}`;
-
 async function copyText(value: string): Promise<void> {
   await navigator.clipboard.writeText(value);
+}
+
+function isIosDevice(): boolean {
+  return /iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
 
 export function ShortcutWebhookCard() {
@@ -35,6 +39,8 @@ export function ShortcutWebhookCard() {
   const token = revealed ?? status.data?.token ?? null;
   const origin = typeof window === "undefined" ? "" : window.location.origin;
   const webhookUrl = token ? buildShortcutWebhookUrl(origin, token) : null;
+  const fileUrl = origin ? buildShortcutFileUrl(origin) : "";
+  const installUrl = origin ? buildShortcutInstallUrl(origin) : "";
 
   const create = useMutation({
     mutationFn: () => createShortcutToken(),
@@ -58,13 +64,28 @@ export function ShortcutWebhookCard() {
 
   const busy = create.isPending || remove.isPending;
 
+  function installShortcut() {
+    if (isIosDevice() && installUrl) {
+      window.location.assign(installUrl);
+      return;
+    }
+    const link = document.createElement("a");
+    link.href = fileUrl;
+    link.download = SHORTCUT_FILE_DOWNLOAD_NAME;
+    link.rel = "noopener";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    toast.success("Kurzbefehl-Datei geladen — auf dem iPhone öffnen");
+  }
+
   return (
     <div className="mt-4 space-y-4 rounded-3xl bg-white p-5 shadow-lg shadow-rose-50">
       <div>
         <h2 className="text-lg font-semibold text-slate-800">Apple Watch / Kurzbefehl</h2>
         <p className="mt-1 text-sm text-slate-400">
-          Ohne Strava-Abo: ein iOS-Kurzbefehl schickt Workouts an Cool Joule. Am zuverlässigsten als
-          Automation „Wenn Training endet“.
+          Ohne Strava-Abo: fertigen iOS-Kurzbefehl installieren. Am zuverlässigsten als Automation
+          „Wenn Training endet“.
         </p>
       </div>
 
@@ -120,6 +141,25 @@ export function ShortcutWebhookCard() {
             URL kopieren
           </Button>
         ) : null}
+        <Button
+          type="button"
+          variant="outline"
+          className="rounded-2xl"
+          disabled={busy || !origin}
+          onClick={installShortcut}
+        >
+          <Download className="size-4" />
+          Kurzbefehl installieren
+        </Button>
+        {origin ? (
+          <a
+            href={fileUrl}
+            download={SHORTCUT_FILE_DOWNLOAD_NAME}
+            className="inline-flex h-9 items-center text-sm text-rose-600 underline-offset-2 hover:underline"
+          >
+            Datei laden
+          </a>
+        ) : null}
         {status.data?.configured ? (
           <Button
             type="button"
@@ -135,37 +175,28 @@ export function ShortcutWebhookCard() {
 
       <ol className="list-decimal space-y-2 pl-5 text-sm text-slate-600">
         <li>
-          iPhone: App <span className="font-medium">Kurzbefehle</span> →{" "}
+          <span className="font-medium">Token erzeugen</span> und die Webhook-URL kopieren.
+        </li>
+        <li>
+          <span className="font-medium">Kurzbefehl installieren</span> — beim Import die kopierte
+          URL einfügen. Auf dem iPhone öffnet sich die App Kurzbefehle; sonst die Datei aufs iPhone
+          legen und antippen.
+        </li>
+        <li>
+          Den Kurzbefehl <span className="font-medium">einmal manuell starten</span> (Health-Zugriff
+          erlauben). Ohne heutiges Workout kann der Lauf fehlschlagen — das ist in Ordnung.
+        </li>
+        <li>
+          iPhone: <span className="font-medium">Kurzbefehle</span> →{" "}
           <span className="font-medium">Automation</span> →{" "}
-          <span className="font-medium">Wenn Training endet</span> (Apple Watch).
-        </li>
-        <li>
-          Aktion <span className="font-medium">Inhalte von URL abrufen</span>: Methode{" "}
-          <span className="font-medium">POST</span>, die kopierte URL einfügen.
-        </li>
-        <li>
-          Anforderungskörper: <span className="font-medium">JSON</span>. Kalorien aus der Health-
-          Probe „Aktiver Energieumsatz“, Name z. B. der Trainingsart.
-        </li>
-        <li>
-          JSON-Beispiel (Datum optional, sonst heute):
-          <button
-            type="button"
-            className="ml-2 text-rose-600 underline-offset-2 hover:underline"
-            onClick={() =>
-              copyText(JSON_BODY_EXAMPLE).then(
-                () => toast.success("JSON kopiert"),
-                () => toast.error("Kopieren nicht möglich"),
-              )
-            }
-          >
-            kopieren
-          </button>
-          <pre className="mt-2 overflow-x-auto rounded-xl bg-slate-50 p-3 text-xs text-slate-700">
-            {JSON_BODY_EXAMPLE}
-          </pre>
+          <span className="font-medium">Wenn Training endet</span> → Cool Joule ausführen.{" "}
+          <span className="font-medium">Vor dem Ausführen fragen</span> ausschalten.
         </li>
       </ol>
+      <p className="text-xs text-slate-400">
+        Token neu erzeugen macht die alte URL ungültig — dann die Text-Aktion im Kurzbefehl
+        aktualisieren.
+      </p>
     </div>
   );
 }
