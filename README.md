@@ -220,32 +220,17 @@ Ohne Webhook reicht der Sync über Tagebuch und Profil.
 
 ### Apple Watch per Kurzbefehl
 
-Apple Health lässt sich von einer Website nicht auslesen. Wer **kein** Strava-Konto nutzen will, importiert Watch-Workouts über einen **persönlichen Webhook** und die iOS-App Kurzbefehle.
+Apple Health lässt sich von einer Website nicht auslesen. Wer **kein** Strava-Konto nutzen will, importiert Watch-Workouts über einen **persönlichen Webhook** und einen fertigen iOS-Kurzbefehl (`public/shortcuts/cool-joule-workout.shortcut`).
 
 **Voraussetzung:** `SUPABASE_SECRET_KEY` und `USER_SECRETS_ENCRYPTION_KEY` (Token wird gehasht und verschlüsselt in `shortcut_tokens` gespeichert, nur `service_role`).
 
 1. In der App anmelden → **Profil** → **Token erzeugen** → **URL kopieren**  
    Die URL gilt für den Host, auf dem du sie erzeugt hast (`localhost` lokal, Production z. B. `https://cool-joule.vercel.app`).
-2. iPhone: **Kurzbefehle** → **Automation** → **Wenn Training endet** (Apple Watch)
-3. Aktion **Inhalte von URL abrufen**: Methode **POST**, kopierte URL einfügen
-4. Anforderungskörper **JSON**. Kalorien z. B. aus der Health-Probe „Aktiver Energieumsatz“
+2. **Kurzbefehl installieren** (iPhone öffnet die App Kurzbefehle). Beim Import die kopierte Webhook-URL einfügen.
+3. Kurzbefehl **einmal manuell starten**, damit iOS den Health-Zugriff abfragt.
+4. **Kurzbefehle** → **Automation** → **Wenn Training endet** → Cool Joule ausführen, **Vor dem Ausführen fragen** aus.
 
-Beispiel-Body:
-
-```json
-{
-  "name": "Laufen",
-  "calories": 380,
-  "date": "2026-08-25"
-}
-```
-
-| Feld | Pflicht | Hinweise |
-| ---- | ------- | -------- |
-| `name` / `titel` / `activity` | nein | sonst „Training“ |
-| `calories` / `kcal` / `kalorien` | ja | Zahl oder String wie `"380 kcal"` |
-| `date` / `datum` | nein | `YYYY-MM-DD`, sonst heutiges Datum |
-| `id` / `uuid` | nein | gleiche ID = Update statt Duplikat (z. B. Workout-UUID) |
+Der Kurzbefehl liest das letzte Workout von heute (Name, kcal, Datum, UUID) und POSTet es an den Webhook. Gleiche Workout-UUID = Update statt Duplikat.
 
 Token alternativ per Header: `Authorization: Bearer <token>` oder `X-Shortcut-Token`.
 
@@ -257,7 +242,9 @@ curl -X POST "http://localhost:5173/api/shortcuts/exercise?token=<TOKEN>" \
   -d '{"name":"Laufen","calories":380}'
 ```
 
-Im Tagebuch erscheinen die Einträge mit Badge **Watch**. **Token neu erzeugen** macht die alte URL ungültig. Wer die URL kennt, kann Aktivitäten in dein Konto schreiben — die URL geheim halten.
+Im Tagebuch erscheinen die Einträge mit Badge **Watch**. **Token neu erzeugen** macht die alte URL ungültig — dann die Text-Aktion im Kurzbefehl aktualisieren. Wer die URL kennt, kann Aktivitäten in dein Konto schreiben — die URL geheim halten.
+
+Die signierte `.shortcut`-Datei nach Änderungen an `shortcuts/cool-joule-workout.plist` auf dem Mac neu erzeugen: `scripts/sign-apple-shortcut.sh`.
 
 ### Scripts
 
@@ -280,6 +267,7 @@ Im Tagebuch erscheinen die Einträge mit Badge **Watch**. **Token neu erzeugen**
 | „Strava ist nicht konfiguriert“ | `STRAVA_CLIENT_ID` / `STRAVA_CLIENT_SECRET` fehlen auf diesem Host |
 | Fotoanalyse / Tokens / Kurzbefehl schlagen fehl | `SUPABASE_SECRET_KEY` oder `USER_SECRETS_ENCRYPTION_KEY` fehlt bzw. weicht zwischen Preview und Production ab |
 | Kurzbefehl 401 | Token neu erzeugt, alte URL noch im Kurzbefehl |
+| Kurzbefehl lässt sich nicht importieren | Datei ist signiert; auf dem iPhone in der App Kurzbefehle öffnen |
 
 ---
 

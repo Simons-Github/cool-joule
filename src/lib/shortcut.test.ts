@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   ShortcutError,
+  SHORTCUT_FILE_PATH,
+  buildShortcutFileUrl,
+  buildShortcutInstallUrl,
   buildShortcutWebhookUrl,
   extractShortcutToken,
   parseCaloriesInput,
@@ -77,6 +83,27 @@ describe("webhook URL and token", () => {
     expect(buildShortcutWebhookUrl("https://cool-joule.vercel.app/", "cj_abc")).toBe(
       "https://cool-joule.vercel.app/api/shortcuts/exercise?token=cj_abc",
     );
+  });
+
+  it("builds an iOS import URL for the signed shortcut file", () => {
+    expect(buildShortcutFileUrl("https://cool-joule.vercel.app/")).toBe(
+      `https://cool-joule.vercel.app${SHORTCUT_FILE_PATH}`,
+    );
+    expect(buildShortcutInstallUrl("https://cool-joule.vercel.app")).toBe(
+      `shortcuts://import-shortcut?url=${encodeURIComponent(
+        `https://cool-joule.vercel.app${SHORTCUT_FILE_PATH}`,
+      )}&name=Cool+Joule`,
+    );
+  });
+
+  it("ships a Shortcuts source that posts workouts to the webhook", () => {
+    const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+    const xml = readFileSync(resolve(root, "shortcuts/cool-joule-workout.plist"), "utf8");
+    expect(xml).toContain("WFWorkflowImportQuestions");
+    expect(xml).toContain("is.workflow.actions.filter.health.quantity");
+    expect(xml).toContain("is.workflow.actions.downloadurl");
+    expect(xml).toContain("<string>POST</string>");
+    expect(xml).toContain("<string>calories</string>");
   });
 
   it("reads token from query, bearer, or header", () => {
