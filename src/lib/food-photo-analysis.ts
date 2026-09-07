@@ -11,11 +11,13 @@ export type AllowedImageMimeType = (typeof ALLOWED_IMAGE_MIME_TYPES)[number];
 export const MAX_IMAGE_BYTES = 800 * 1024;
 export const MAX_IMAGE_EDGE = 768;
 export const FOOD_PHOTO_JPEG_QUALITY = 0.65;
-export const FOOD_PHOTO_ANALYSIS_TIMEOUT_MS = 20_000;
+export const FOOD_PHOTO_ATTEMPT_TIMEOUT_MS = 15_000;
+export const FOOD_PHOTO_MAX_ATTEMPTS = 2;
 export const FOOD_PHOTO_TIMEOUT_MESSAGE =
   "Die Analyse hat zu lange gedauert. Bitte erneut versuchen.";
 
 export type FoodPhotoConfidence = "high" | "medium" | "low";
+export type FoodPhotoNutritionSource = "recent" | "custom" | "generic" | "model";
 
 export type AnalyzedFoodItem = {
   name: string;
@@ -25,6 +27,7 @@ export type AnalyzedFoodItem = {
   carbs100: number;
   fat100: number;
   confidence: FoodPhotoConfidence;
+  nutritionSource: FoodPhotoNutritionSource;
 };
 
 export type PhotoDraft = AnalyzedFoodItem & {
@@ -85,10 +88,12 @@ export type FoodPhotoAnalysisOutput = z.infer<typeof foodPhotoAnalysisSchema>;
 export const FOOD_PHOTO_PROMPT = `Analysiere das Foto einer Mahlzeit.
 
 Regeln:
-- Antworte auf Deutsch bei den Lebensmittelnamen (übliche Bezeichnungen).
-- Liste jedes sichtbare Lebensmittel getrennt (höchstens 12), z. B. Reis, Hähnchen, Salat — nicht den ganzen Teller als ein Item.
-- Schätze die Portionsgröße in Gramm.
-- Nährwerte pro 100 g grob mitschicken (kcal, Protein, Kohlenhydrate, Fett) als Fallback.
+- Antworte auf Deutsch bei den Lebensmittelnamen (übliche Bezeichnungen, z. B. Reis, Hähnchenbrust, Salat).
+- Liste jedes sichtbare Lebensmittel getrennt (höchstens 12) — nicht den ganzen Teller als ein Item.
+- Nenne die Zubereitung im Namen, wenn sie erkennbar ist (gekocht, gebraten, roh, gegrillt).
+- Öl, Sauce, Dressing oder Käsebelag als eigenes Item auflisten, wenn sichtbar.
+- Schätze die Portionsgröße in Gramm; orientiere dich an typischen deutschen Tellermengen (Beilage 150–250 g, Fleisch 120–180 g, Gemüse 80–150 g).
+- Nährwerte pro 100 g nur grob als Fallback (kcal, Protein, Kohlenhydrate, Fett) — lieber weglassen als raten, wenn unsicher.
 - Erfinde nichts: wenn kein Essen erkennbar oder das Bild unklar ist, gib items als leeres Array zurück.
 - confidence: high bei klar erkennbarem Gericht, medium bei Schätzung, low bei unsicherer Erkennung.`;
 
@@ -143,7 +148,21 @@ export function mapAnalyzedItem(raw: z.infer<typeof foodPhotoItemSchema>): Analy
     carbs100: round1(clampNonNegative(raw.carbs100 ?? 0)),
     fat100: round1(clampNonNegative(raw.fat100 ?? 0)),
     confidence: raw.confidence ?? "medium",
+    nutritionSource: "model",
   };
+}
+
+export function nutritionSourceLabel(source: FoodPhotoNutritionSource): string {
+  switch (source) {
+    case "recent":
+      return "Tagebuch";
+    case "custom":
+      return "Eigene";
+    case "generic":
+      return "Tabelle";
+    case "model":
+      return "geschätzt";
+  }
 }
 
 export function mapAnalyzedItems(

@@ -7,6 +7,7 @@ import { analyzeFoodPhoto, getFoodPhotoQuota } from "@/lib/analyze-food-photo";
 import { compressFoodPhoto } from "@/lib/compress-food-photo";
 import {
   getFoodPhotoErrorMessage,
+  nutritionSourceLabel,
   scaleMacros,
   type AnalyzedFoodItem,
   type PhotoDraft,
@@ -22,6 +23,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
+
+type PhotoPayload = { mimeType: "image/jpeg"; base64: string };
+type AnalyzeVars = PhotoPayload & { requestId: number };
 
 export function FoodPhotoResults({
   drafts,
@@ -41,7 +45,7 @@ export function FoodPhotoResults({
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Nährwerte aus Open Food Facts, sonst KI-Schätzung — bitte prüfen.
+        Nährwerte aus deinem Tagebuch / Standardwerten — bitte Portion prüfen.
       </p>
       <ScrollArea className="h-72">
         <div className="space-y-2 pr-3">
@@ -105,7 +109,8 @@ export function FoodPhotoResults({
                     </div>
                     <p className="text-xs text-muted-foreground">
                       {macros.calories} kcal · {macros.protein} g E · {macros.carbs} g KH ·{" "}
-                      {macros.fat} g F{draft.confidence === "low" ? " · unsichere Schätzung" : ""}
+                      {macros.fat} g F · {nutritionSourceLabel(draft.nutritionSource)}
+                      {draft.confidence === "low" ? " · unsichere Erkennung" : ""}
                     </p>
                   </div>
                 </div>
@@ -181,8 +186,9 @@ export function FoodPhotoCapture({
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
   const previewUrlRef = useRef<string | null>(null);
+  const requestIdRef = useRef(0);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [payload, setPayload] = useState<{ mimeType: "image/jpeg"; base64: string } | null>(null);
+  const [payload, setPayload] = useState<PhotoPayload | null>(null);
 
   const quota = useQuery({
     queryKey: foodPhotoQuotaQueryKey,
@@ -200,44 +206,60 @@ export function FoodPhotoCapture({
 
   useEffect(() => () => revokePreview(), []);
 
-  const pickFile = async (file: File | undefined) => {
-    if (!file) return;
-    try {
-      const compressed = await compressFoodPhoto(file);
-      revokePreview();
-      previewUrlRef.current = compressed.previewUrl;
-      setPreviewUrl(compressed.previewUrl);
-      setPayload({ mimeType: compressed.mimeType, base64: compressed.base64 });
-    } catch (error) {
-      toast.error(getFoodPhotoErrorMessage(error));
-    }
-  };
+  const isCurrentRequest = (requestId: number) => requestId === requestIdRef.current;
 
   const analyze = useMutation({
-    mutationFn: async () => {
-      if (!payload) throw new Error("Bitte zuerst ein Foto wählen.");
+    mutationFn: async (vars: AnalyzeVars) => {
       return analyzeFoodPhoto({
-        data: { imageBase64: payload.base64, mimeType: payload.mimeType },
+        data: { imageBase64: vars.base64, mimeType: vars.mimeType },
       });
     },
-    onSuccess: ({ items }) => {
+    onSuccess: ({ items }, vars) => {
+      if (!isCurrentRequest(vars.requestId)) return;
       if (items.length === 0) {
         toast.error("Kein Essen erkennbar. Bitte ein klareres Foto versuchen.");
         return;
       }
       onAnalyzed(items);
     },
-    onError: (error) => toast.error(getFoodPhotoErrorMessage(error)),
-    onSettled: () => {
+    onError: (error, vars) => {
+      if (!isCurrentRequest(vars.requestId)) return;
+      toast.error(getFoodPhotoErrorMessage(error));
+    },
+    onSettled: (_data, _error, vars) => {
+      if (!isCurrentRequest(vars.requestId)) return;
       void queryClient.invalidateQueries({ queryKey: foodPhotoQuotaQueryKey });
     },
   });
 
+  const startAnalyze = (image: PhotoPayload, requestId = ++requestIdRef.current) => {
+    if (quotaBlocked) return;
+    analyze.mutate({ ...image, requestId });
+  };
+
+  const pickFile = async (file: File | undefined) => {
+    if (!file) return;
+    const requestId = ++requestIdRef.current;
+    try {
+      const compressed = await compressFoodPhoto(file);
+      if (!isCurrentRequest(requestId)) return;
+      revokePreview();
+      previewUrlRef.current = compressed.previewUrl;
+      setPreviewUrl(compressed.previewUrl);
+      const nextPayload = { mimeType: compressed.mimeType, base64: compressed.base64 };
+      setPayload(nextPayload);
+      startAnalyze(nextPayload, requestId);
+    } catch (error) {
+      if (!isCurrentRequest(requestId)) return;
+      toast.error(getFoodPhotoErrorMessage(error));
+    }
+  };
+
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
-        Fotografiere dein Essen oder lade ein Bild hoch. Nährwerte kommen wo möglich aus Open Food
-        Facts — bitte prüfen.
+        Fotografiere dein Essen oder lade ein Bild hoch. Die Analyse startet automatisch — bitte
+        Portion prüfen.
       </p>
       <FoodPhotoQuotaHint quota={quota.data} />
       <input
@@ -281,29 +303,36 @@ export function FoodPhotoCapture({
         <div className="relative overflow-hidden rounded-2xl bg-slate-100">
           <img src={previewUrl} alt="Ausgewähltes Essen" className="max-h-56 w-full object-cover" />
           {analyze.isPending && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-white">
+            <div
+              className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/40 text-white"
+              role="status"
+              aria-live="polite"
+            >
               <Loader2 className="size-6 animate-spin" />
+              <p className="text-sm">Erkenne Lebensmittel…</p>
             </div>
           )}
         </div>
       )}
 
-      <Button
-        type="button"
-        className="w-full"
-        disabled={!payload || analyze.isPending || quotaBlocked}
-        onClick={() => analyze.mutate()}
-      >
-        {analyze.isPending ? (
-          <>
-            <Loader2 className="size-4 animate-spin" /> Analysieren…
-          </>
-        ) : quotaBlocked ? (
-          "Kontingent aufgebraucht"
-        ) : (
-          "Analysieren"
-        )}
-      </Button>
+      {payload && (
+        <Button
+          type="button"
+          className="w-full"
+          disabled={analyze.isPending || quotaBlocked}
+          onClick={() => startAnalyze(payload)}
+        >
+          {analyze.isPending ? (
+            <>
+              <Loader2 className="size-4 animate-spin" /> Erkenne Lebensmittel…
+            </>
+          ) : quotaBlocked ? (
+            "Kontingent aufgebraucht"
+          ) : (
+            "Erneut analysieren"
+          )}
+        </Button>
+      )}
     </div>
   );
 }
