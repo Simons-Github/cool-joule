@@ -1,7 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import {
-  FOOD_PHOTO_ANALYSIS_TIMEOUT_MS,
+  FOOD_PHOTO_ATTEMPT_TIMEOUT_MS,
   FOOD_PHOTO_GOOGLE_MODEL,
+  FOOD_PHOTO_MAX_ATTEMPTS,
   FOOD_PHOTO_MODEL,
   FOOD_PHOTO_PROMPT,
   FOOD_PHOTO_TIMEOUT_MESSAGE,
@@ -11,12 +12,13 @@ import {
   mapAnalyzedItems,
   validateImagePayload,
   type AnalyzedFoodItem,
+  type FoodPhotoAnalysisOutput,
 } from "@/lib/food-photo-analysis";
-import { FOOD_PHOTO_OFF_TIMEOUT_MS } from "@/lib/food-photo-off";
 import { OWN_KEY_REQUIRED_MESSAGE, type FoodPhotoQuota } from "@/lib/food-photo-quota";
 import type { AuthenticatedUser } from "@/lib/server-auth";
 
 const UNAUTHENTICATED_MESSAGE = "Bitte anmelden, um Fotos zu analysieren.";
+const EMPTY_OUTPUT_MESSAGE = "Die Analyse hat kein Ergebnis geliefert. Bitte erneut versuchen.";
 
 function decodeBase64(base64: string): Uint8Array {
   const binary = atob(base64);
@@ -90,6 +92,60 @@ async function resolveFoodPhotoModel(
   return { model: FOOD_PHOTO_MODEL, usesAppKey: true };
 }
 
+async function generateFoodPhotoOutput(
+  model: Parameters<typeof import("ai").generateText>[0]["model"],
+  image: Uint8Array,
+  mimeType: string,
+): Promise<FoodPhotoAnalysisOutput> {
+  const { generateText, Output } = await import("ai");
+  const generate = () =>
+    generateText({
+      model,
+      output: Output.object({
+        schema: foodPhotoAnalysisSchema,
+      }),
+      abortSignal: AbortSignal.timeout(FOOD_PHOTO_ATTEMPT_TIMEOUT_MS),
+      maxRetries: 0,
+      providerOptions: {
+        google: {
+          thinkingConfig: {
+            thinkingLevel: "minimal",
+          },
+        },
+      },
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image",
+              image,
+              mediaType: mimeType,
+            },
+            { type: "text", text: FOOD_PHOTO_PROMPT },
+          ],
+        },
+      ],
+    });
+
+  let lastError: unknown;
+  for (let attempt = 0; attempt < FOOD_PHOTO_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      const { output } = await generate();
+      if (output) return output;
+      lastError = new FoodPhotoError("ANALYSIS_FAILED", EMPTY_OUTPUT_MESSAGE);
+    } catch (error) {
+      lastError = error;
+      const retryable = isFoodPhotoTimeoutError(error);
+      if (!retryable || attempt === FOOD_PHOTO_MAX_ATTEMPTS - 1) throw error;
+    }
+  }
+
+  throw lastError instanceof FoodPhotoError
+    ? lastError
+    : new FoodPhotoError("ANALYSIS_FAILED", EMPTY_OUTPUT_MESSAGE, { cause: lastError });
+}
+
 export const getFoodPhotoQuota = createServerFn({ method: "POST" }).handler(
   async (): Promise<FoodPhotoQuota> => {
     const { getFoodPhotoQuotaForUser } = await import("@/lib/food-photo-quota.server");
@@ -106,7 +162,6 @@ export const analyzeFoodPhoto = createServerFn({ method: "POST" })
     };
   })
   .handler(async ({ data }): Promise<{ items: AnalyzedFoodItem[] }> => {
-    const { generateText, Output } = await import("ai");
     const { logServerError } = await import("@/lib/server-auth");
     const { enforceRateLimit, toFoodPhotoRateLimitError } = await import("@/lib/rate-limit.server");
     const user = await requirePhotoUser();
@@ -114,46 +169,21 @@ export const analyzeFoodPhoto = createServerFn({ method: "POST" })
     try {
       await enforceRateLimit(user.id, "food_photo_analyze");
       const resolved = await resolveFoodPhotoModel(user);
-      const { output } = await generateText({
-        model: resolved.model as Parameters<typeof generateText>[0]["model"],
-        output: Output.object({
-          schema: foodPhotoAnalysisSchema,
-        }),
-        abortSignal: AbortSignal.timeout(FOOD_PHOTO_ANALYSIS_TIMEOUT_MS),
-        maxRetries: 0,
-        providerOptions: {
-          google: {
-            thinkingConfig: {
-              thinkingLevel: "minimal",
-            },
-          },
-        },
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "image",
-                image: decodeBase64(data.imageBase64),
-                mediaType: data.mimeType,
-              },
-              { type: "text", text: FOOD_PHOTO_PROMPT },
-            ],
-          },
-        ],
-      });
+      const [{ loadNutritionCatalog }, { resolvePhotoItemsNutrition }] = await Promise.all([
+        import("@/lib/food-photo-nutrition.server"),
+        import("@/lib/food-photo-nutrition"),
+      ]);
 
-      if (!output) {
-        throw new FoodPhotoError(
-          "ANALYSIS_FAILED",
-          "Die Analyse hat kein Ergebnis geliefert. Bitte erneut versuchen.",
-        );
-      }
+      const [output, catalog] = await Promise.all([
+        generateFoodPhotoOutput(
+          resolved.model as Parameters<typeof import("ai").generateText>[0]["model"],
+          decodeBase64(data.imageBase64),
+          data.mimeType,
+        ),
+        loadNutritionCatalog(user.id),
+      ]);
 
-      const { enrichPhotoItemsWithOff } = await import("@/lib/food-photo-off");
-      const items = await enrichPhotoItemsWithOff(mapAnalyzedItems(output.items), {
-        signal: AbortSignal.timeout(FOOD_PHOTO_OFF_TIMEOUT_MS),
-      });
+      const items = resolvePhotoItemsNutrition(mapAnalyzedItems(output.items), catalog);
       if (resolved.usesAppKey) {
         const { claimServerKeyPhotoQuota } = await import("@/lib/food-photo-quota.server");
         await claimServerKeyPhotoQuota(user.id);

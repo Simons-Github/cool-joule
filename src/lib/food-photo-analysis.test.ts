@@ -10,6 +10,7 @@ import {
   isFoodPhotoTimeoutError,
   mapAnalyzedItem,
   mapAnalyzedItems,
+  nutritionSourceLabel,
   scaleMacros,
   toPhotoDrafts,
   validateImagePayload,
@@ -81,6 +82,7 @@ describe("mapAnalyzedItem", () => {
       carbs100: 0,
       fat100: 3.6,
       confidence: "medium",
+      nutritionSource: "model",
     });
   });
 
@@ -109,7 +111,7 @@ describe("mapAnalyzedItem", () => {
     ).toBeNull();
   });
 
-  it("accepts items without macros so OFF can fill them", () => {
+  it("accepts items without macros so catalog matching can fill them", () => {
     expect(
       mapAnalyzedItem({
         name: "Reis",
@@ -123,6 +125,7 @@ describe("mapAnalyzedItem", () => {
       carbs100: 0,
       fat100: 0,
       confidence: "medium",
+      nutritionSource: "model",
     });
   });
 
@@ -145,6 +148,7 @@ describe("mapAnalyzedItem", () => {
       carbs100: 3,
       fat100: 0.2,
       confidence: "low",
+      nutritionSource: "model",
     });
   });
 });
@@ -180,6 +184,7 @@ describe("mapAnalyzedItems", () => {
         carbs100: 28,
         fat100: 0.3,
         confidence: "high",
+        nutritionSource: "model",
       },
     ]);
   });
@@ -201,6 +206,7 @@ describe("toPhotoDrafts", () => {
           carbs100: 28,
           fat100: 0.3,
           confidence: "high",
+          nutritionSource: "model",
         },
       ]),
     ).toEqual([
@@ -212,6 +218,7 @@ describe("toPhotoDrafts", () => {
         carbs100: 28,
         fat100: 0.3,
         confidence: "high",
+        nutritionSource: "model",
         id: "Reis-0",
         selected: true,
         grams: "200",
@@ -296,5 +303,14 @@ describe("getFoodPhotoErrorMessage", () => {
     const timeout = Object.assign(new Error("The operation was aborted"), { name: "TimeoutError" });
     expect(isFoodPhotoTimeoutError(timeout)).toBe(true);
     expect(getFoodPhotoErrorMessage(timeout)).toBe(FOOD_PHOTO_TIMEOUT_MESSAGE);
+  });
+});
+
+describe("nutritionSourceLabel", () => {
+  it("labels each nutrition source", () => {
+    expect(nutritionSourceLabel("recent")).toBe("Tagebuch");
+    expect(nutritionSourceLabel("custom")).toBe("Eigene");
+    expect(nutritionSourceLabel("generic")).toBe("Tabelle");
+    expect(nutritionSourceLabel("model")).toBe("geschätzt");
   });
 });

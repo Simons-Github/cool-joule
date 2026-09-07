@@ -157,21 +157,20 @@ try {
 
     await page.getByRole("button", { name: "Nahrungsmittel hinzufügen" }).first().click();
     await page.getByRole("tab", { name: "Foto" }).click();
-    const hint = page.getByText("Open Food Facts");
+    const hint = page.getByText("Die Analyse startet automatisch");
     if (!(await hint.first().isVisible())) {
-      throw new Error("Foto-Tab zeigt den Open-Food-Facts-Hinweis nicht");
+      throw new Error("Foto-Tab zeigt den Auto-Analyse-Hinweis nicht");
     }
 
     const image = resolve(ROOT, "public/mascot_lunch.png");
     await page.locator('input[type="file"][accept="image/*"]:not([capture])').setInputFiles(image);
-    await page.getByRole("button", { name: "Analysieren" }).click();
 
     const started = Date.now();
     await page.waitForFunction(
       () => {
-        const pending = document.body.innerText.includes("Analysieren…");
+        const pending = document.body.innerText.includes("Erkenne Lebensmittel…");
         const drafts = document.body.innerText.includes(
-          "Nährwerte aus Open Food Facts, sonst KI-Schätzung",
+          "Nährwerte aus deinem Tagebuch / Standardwerten",
         );
         const toastish =
           document.body.innerText.includes("zu lange gedauert") ||
