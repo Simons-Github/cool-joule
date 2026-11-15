@@ -24,7 +24,8 @@ export function securityHeaderMap(supabaseUrl?: string): Record<string, string> 
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "Content-Security-Policy": [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline'",
+      // 'wasm-unsafe-eval' is required for the zxing WASM barcode decoder (Safari has no native BarcodeDetector).
+      "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' blob: data:",
       "font-src 'self'",
