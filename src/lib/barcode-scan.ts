@@ -56,7 +56,16 @@ export async function openCameraStream(): Promise<MediaStream> {
     throw new Error("Kamera wird nicht unterstützt.");
   }
 
+  // Safari/iOS defaults to a low-resolution feed; barcodes are unreadable without a higher one.
   const attempts: MediaStreamConstraints[] = [
+    {
+      audio: false,
+      video: {
+        facingMode: { ideal: "environment" },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+      },
+    },
     { audio: false, video: { facingMode: { ideal: "environment" } } },
     { audio: false, video: { facingMode: "environment" } },
     { audio: false, video: true },
@@ -88,4 +97,17 @@ export function captureVideoFrame(
   if (!ctx) return null;
   ctx.drawImage(video, 0, 0, width, height);
   return canvas;
+}
+
+/** Best-effort: ask the camera for continuous autofocus (ignored where unsupported). */
+export async function enableContinuousFocus(stream: MediaStream): Promise<void> {
+  const track = stream.getVideoTracks()[0];
+  if (!track?.applyConstraints) return;
+  try {
+    await track.applyConstraints({
+      advanced: [{ focusMode: "continuous" } as MediaTrackConstraintSet],
+    });
+  } catch {
+    // focusMode is not supported on every browser/camera
+  }
 }

@@ -50,12 +50,13 @@ describe("openCameraStream", () => {
       .fn()
       .mockRejectedValueOnce(new Error("overconstrained"))
       .mockRejectedValueOnce(new Error("overconstrained"))
+      .mockRejectedValueOnce(new Error("overconstrained"))
       .mockResolvedValueOnce(stream);
 
     vi.stubGlobal("navigator", { mediaDevices: { getUserMedia } });
 
     await expect(openCameraStream()).resolves.toBe(stream);
-    expect(getUserMedia).toHaveBeenCalledTimes(3);
+    expect(getUserMedia).toHaveBeenCalledTimes(4);
     expect(getUserMedia).toHaveBeenLastCalledWith({ audio: false, video: true });
   });
 });

@@ -3,6 +3,7 @@ import { flushSync } from "react-dom";
 import {
   captureVideoFrame,
   createBarcodeDetector,
+  enableContinuousFocus,
   isCameraSupported,
   openCameraStream,
 } from "@/lib/barcode-scan";
@@ -98,12 +99,14 @@ export function useBarcodeScanner() {
         }
 
         await video.play();
+        void enableContinuousFocus(stream);
 
         if (!canvasRef.current) {
           canvasRef.current = document.createElement("canvas");
         }
 
         let detecting = false;
+        let loggedDetectError = false;
         let lastAttempt = 0;
 
         const tick = async () => {
@@ -125,8 +128,12 @@ export function useBarcodeScanner() {
                   onDetected(value);
                   return;
                 }
-              } catch {
-                // ignore transient detection errors while camera warms up
+              } catch (error) {
+                // transient errors are expected while the camera warms up; keep scanning
+                if (!loggedDetectError) {
+                  loggedDetectError = true;
+                  console.warn("Barcode detection failed", error);
+                }
               } finally {
                 detecting = false;
               }
