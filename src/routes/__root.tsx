@@ -131,6 +131,11 @@ function RootComponent() {
   const isDesktop = !useIsMobile();
 
   useEffect(() => {
+    // iOS kann localStorage unter Speicherdruck räumen (=> Login weg). Dauerhaften Speicher anfragen.
+    void navigator.storage?.persist?.().catch(() => {});
+  }, []);
+
+  useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       // Defer: invalidate re-runs getUser() in authenticated routes and would deadlock supabase-js.
