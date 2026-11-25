@@ -12,5 +12,5 @@ The app is hosted on Vercel at [joule.berger-labs.com](https://joule.berger-labs
 - [ ] `STRAVA_WEBHOOK_VERIFY_TOKEN` and `STRAVA_WEBHOOK_SUBSCRIPTION_ID` (the latter is required, otherwise event POSTs get 403)
 - [ ] Auth redirect URLs include `/auth` (recovery) and `/strava/callback`
 - [ ] Leaked password protection enabled in the Supabase dashboard
-- [ ] Anonymous sign-ins enabled and the `delete-stale-demo-users` cron job scheduled (demo mode, see development.md)
+- [ ] Anonymous sign-ins enabled and the `demo_user_cleanup` migration applied (demo mode, see development.md)
 - [ ] Migrations applied to the project (including `strava_connections` and `shortcut_tokens`)

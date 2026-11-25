@@ -56,15 +56,7 @@ A Gemini key saved in the profile takes precedence over the app-level key. Users
    - `https://<production-domain>/auth`
    - `https://<production-domain>/strava/callback`
 5. **Demo mode** (the "Demo ausprobieren" button): turn on **Authentication > Sign In / Providers > Allow anonymous sign-ins**. Supabase rate-limits anonymous sign-ins per IP (**Authentication > Rate Limits**, default 30 per hour). Without this setting the button shows "Der Demo-Modus ist gerade nicht verfügbar".
-6. **Demo cleanup:** enable the `pg_cron` extension (**Database > Extensions**) and schedule the deletion of old anonymous users in the SQL editor. All user tables cascade from `auth.users`, so this removes their sample data too:
-
-   ```sql
-   select cron.schedule(
-     'delete-stale-demo-users',
-     '17 3 * * *',
-     $$delete from auth.users where is_anonymous and created_at < now() - interval '7 days'$$
-   );
-   ```
+6. **Demo cleanup:** the migration `20261125163525_demo_user_cleanup.sql` enables `pg_cron` and schedules the job `delete-stale-demo-users`. Every night at 03:17 it deletes anonymous users older than 7 days. All user tables cascade from `auth.users`, so their sample data goes too. Check it with `select * from cron.job;`.
 
 ## Database tables
 
