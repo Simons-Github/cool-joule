@@ -10,6 +10,7 @@ import {
   downloadJson,
 } from "@/lib/export-account-data";
 import { RateLimitError } from "@/lib/rate-limit";
+import { getDeleteConfirmation, isDeleteConfirmed } from "@/lib/delete-account-confirm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,8 +19,8 @@ export function AccountDataCard({ userId, email }: { userId: string; email: stri
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [confirmEmail, setConfirmEmail] = useState("");
-  const expected = (email ?? "").trim().toLowerCase();
-  const confirmMatches = expected.length > 0 && confirmEmail.trim().toLowerCase() === expected;
+  const confirmation = getDeleteConfirmation(email);
+  const confirmMatches = isDeleteConfirmed(confirmEmail, email);
 
   const exportData = useMutation({
     mutationFn: () => collectAccountExport(userId, email),
@@ -70,15 +71,15 @@ export function AccountDataCard({ userId, email }: { userId: string; email: stri
       </Button>
 
       <div className="space-y-2 border-t border-rose-50 pt-4">
-        <Label htmlFor="delete-account-email">Zum Löschen E-Mail zur Bestätigung eingeben</Label>
+        <Label htmlFor="delete-account-email">{confirmation.label}</Label>
         <Input
           id="delete-account-email"
-          type="email"
+          type={confirmation.inputType}
           autoComplete="off"
           className="rounded-xl"
           value={confirmEmail}
           onChange={(e) => setConfirmEmail(e.target.value)}
-          placeholder={email ?? "E-Mail"}
+          placeholder={confirmation.placeholder}
         />
         <Button
           type="button"
