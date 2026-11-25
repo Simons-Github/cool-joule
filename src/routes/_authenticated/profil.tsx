@@ -6,10 +6,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/useProfile";
 import { AppShell } from "@/components/AppShell";
 import { ErrorState } from "@/components/ErrorState";
+import { useT } from "@/lib/i18n/react";
+import { translate } from "@/lib/i18n";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import {
-  ACTIVITY_LABELS,
-  GOAL_LABELS,
+  ACTIVITY_LEVELS,
+  GOALS,
+  activityLabel,
   calculateTargets,
+  goalLabel,
   todayISO,
   type ActivityLevel,
   type Gender,
@@ -34,17 +39,19 @@ import { AccountDataCard } from "@/components/AccountDataCard";
 import { isDemoUser } from "@/lib/demo-mode";
 
 export const Route = createFileRoute("/_authenticated/profil")({
-  head: () => ({
-    meta: [
-      { title: `Profil — ${APP_NAME}` },
-      { name: "description", content: "Passe deine Ziele, Körperdaten und Makroverteilung an." },
-      { property: "og:title", content: `Profil — ${APP_NAME}` },
-      {
-        property: "og:description",
-        content: "Passe deine Ziele, Körperdaten und Makroverteilung an.",
-      },
-    ],
-  }),
+  head: ({ match }) => {
+    const lang = match.context.lang;
+    const title = translate(lang, "profile.meta.title", { app: APP_NAME });
+    const description = translate(lang, "profile.meta.description");
+    return {
+      meta: [
+        { title },
+        { name: "description", content: description },
+        { property: "og:title", content: title },
+        { property: "og:description", content: description },
+      ],
+    };
+  },
   component: ProfilePage,
 });
 
@@ -60,6 +67,7 @@ type Form = {
 
 function ProfilePage() {
   const { user } = Route.useRouteContext();
+  const t = useT();
   const queryClient = useQueryClient();
   const [form, setForm] = useState<Form>({
     gender: "female",
@@ -131,7 +139,7 @@ function ProfilePage() {
       if (weightError) throw weightError;
     },
     onSuccess: () => {
-      toast.success("Profil aktualisiert");
+      toast.success(t("profile.updated"));
       queryClient.invalidateQueries({ queryKey: ["profile", user.id] });
       queryClient.invalidateQueries({ queryKey: ["weight_logs", user.id] });
     },
@@ -140,16 +148,13 @@ function ProfilePage() {
 
   return (
     <AppShell>
-      <h1 className="text-2xl font-bold tracking-tight text-slate-800">Profil & Ziele</h1>
-      <p className="mt-1 text-sm text-slate-400">{demo ? "Demo-Konto" : user.email}</p>
+      <h1 className="text-2xl font-bold tracking-tight text-slate-800">{t("profile.title")}</h1>
+      <p className="mt-1 text-sm text-slate-400">{demo ? t("profile.demoAccount") : user.email}</p>
 
       {demo ? (
         <div className="mt-4 rounded-3xl bg-white p-5 shadow-xl shadow-rose-100/50">
-          <h2 className="font-semibold text-slate-800">Integrationen</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Strava, Apple-Kurzbefehle und ein eigener Gemini-Key für die KI-Fotoanalyse sind im
-            Demo-Modus deaktiviert. Mit einem eigenen Konto stehen sie zur Verfügung.
-          </p>
+          <h2 className="font-semibold text-slate-800">{t("profile.integrations")}</h2>
+          <p className="mt-1 text-sm text-slate-500">{t("profile.integrationsDemo")}</p>
         </div>
       ) : (
         <>
@@ -158,13 +163,14 @@ function ProfilePage() {
           <GeminiApiKeyCard />
         </>
       )}
+      <LanguageSwitcher variant="card" />
       <AccountDataCard userId={user.id} email={user.email ?? null} />
 
       {profile.isError ? (
         <div className="mt-4">
           <ErrorState
-            title="Profil konnte nicht geladen werden"
-            message="Deine Profildaten konnten nicht abgerufen werden. Bitte prüfe deine Internetverbindung."
+            title={t("profile.loadError.title")}
+            message={t("profile.loadError.message")}
             onRetry={() => profile.refetch()}
           />
         </div>
@@ -174,21 +180,21 @@ function ProfilePage() {
         <>
           {/* Calorie target summary */}
           <div className="mt-4 rounded-3xl bg-white p-5 shadow-xl shadow-rose-100/50">
-            <p className="text-sm text-slate-400">Aktuelles Tagesziel</p>
+            <p className="text-sm text-slate-400">{t("profile.currentTarget")}</p>
             <p className="text-4xl font-bold tabular-nums text-slate-800">
               {targets.calories} kcal
             </p>
             <div className="mt-4 grid grid-cols-3 gap-3 text-center text-sm">
               <div>
-                <p className="text-slate-400">Eiweiß</p>
+                <p className="text-slate-400">{t("macro.protein")}</p>
                 <p className="font-semibold text-slate-700">{targets.protein} g</p>
               </div>
               <div>
-                <p className="text-slate-400">Kohlenhydrate</p>
+                <p className="text-slate-400">{t("macro.carbs")}</p>
                 <p className="font-semibold text-slate-700">{targets.carbs} g</p>
               </div>
               <div>
-                <p className="text-slate-400">Fett</p>
+                <p className="text-slate-400">{t("macro.fat")}</p>
                 <p className="font-semibold text-slate-700">{targets.fat} g</p>
               </div>
             </div>
@@ -197,7 +203,7 @@ function ProfilePage() {
           {/* Form card */}
           <div className="mt-4 grid gap-4 rounded-3xl bg-white p-5 shadow-lg shadow-rose-50 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label>Geschlecht</Label>
+              <Label>{t("profile.gender")}</Label>
               <Select
                 value={form.gender}
                 onValueChange={(v) => setForm({ ...form, gender: v as Gender })}
@@ -206,13 +212,13 @@ function ProfilePage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="female">Weiblich</SelectItem>
-                  <SelectItem value="male">Männlich</SelectItem>
+                  <SelectItem value="female">{t("onb.female")}</SelectItem>
+                  <SelectItem value="male">{t("onb.male")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="age">Alter</Label>
+              <Label htmlFor="age">{t("profile.age")}</Label>
               <Input
                 id="age"
                 type="number"
@@ -222,7 +228,7 @@ function ProfilePage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="h">Größe (cm)</Label>
+              <Label htmlFor="h">{t("profile.height")}</Label>
               <Input
                 id="h"
                 type="number"
@@ -232,7 +238,7 @@ function ProfilePage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="w">Aktuelles Gewicht (kg)</Label>
+              <Label htmlFor="w">{t("profile.weightNow")}</Label>
               <Input
                 id="w"
                 type="number"
@@ -243,7 +249,7 @@ function ProfilePage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="tw">Zielgewicht (kg)</Label>
+              <Label htmlFor="tw">{t("profile.weightTarget")}</Label>
               <Input
                 id="tw"
                 type="number"
@@ -254,7 +260,7 @@ function ProfilePage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Aktivitätslevel</Label>
+              <Label>{t("profile.activityLevel")}</Label>
               <Select
                 value={form.activity}
                 onValueChange={(v) => setForm({ ...form, activity: v as ActivityLevel })}
@@ -263,16 +269,16 @@ function ProfilePage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {(Object.keys(ACTIVITY_LABELS) as ActivityLevel[]).map((a) => (
+                  {ACTIVITY_LEVELS.map((a) => (
                     <SelectItem key={a} value={a}>
-                      {ACTIVITY_LABELS[a]}
+                      {activityLabel(t, a)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2 sm:col-span-2">
-              <Label>Ziel</Label>
+              <Label>{t("profile.goal")}</Label>
               <Select
                 value={form.goal}
                 onValueChange={(v) => setForm({ ...form, goal: v as Goal })}
@@ -281,9 +287,9 @@ function ProfilePage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {(Object.keys(GOAL_LABELS) as Goal[]).map((g) => (
+                  {GOALS.map((g) => (
                     <SelectItem key={g} value={g}>
-                      {GOAL_LABELS[g]}
+                      {goalLabel(t, g)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -294,7 +300,7 @@ function ProfilePage() {
               onClick={() => save.mutate()}
               disabled={save.isPending}
             >
-              Änderungen speichern
+              {t("profile.saveChanges")}
             </Button>
           </div>
         </>

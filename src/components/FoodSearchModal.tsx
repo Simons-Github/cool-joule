@@ -3,19 +3,15 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { Barcode, Camera, Loader2, Search, Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { MEALS, addDays, todayISO, type MealType } from "@/lib/nutrition";
+import { useI18n, useT } from "@/lib/i18n/react";
+import { addDays, mealLabel, todayISO, type MealType } from "@/lib/nutrition";
 import { getOpenFoodFactsErrorMessage, type FoodItem } from "@/lib/open-food-facts";
 import { searchOpenFoodFacts, lookupOpenFoodFactsBarcode } from "@/lib/search-open-food-facts";
 import { useBarcodeScanner } from "@/hooks/useBarcodeScanner";
 import { FoodPhotoCapture, FoodPhotoResults } from "@/components/FoodPhotoPanel";
 import { useFoodPhotoLog } from "@/hooks/useFoodPhotoLog";
 import { toPhotoDrafts, type PhotoDraft } from "@/lib/food-photo-analysis";
-import {
-  QUICK_ADD_DEFAULT_NAME,
-  RECENT_FOOD_DAYS,
-  groupRecentFoods,
-  type RecentFood,
-} from "@/lib/food-log";
+import { RECENT_FOOD_DAYS, groupRecentFoods, type RecentFood } from "@/lib/food-log";
 import type { Database } from "@/integrations/supabase/types";
 import {
   Dialog,
@@ -57,6 +53,7 @@ export function FoodSearchModal({
   /** Demo users see the photo tab, but the AI analysis is switched off. */
   demo?: boolean;
 }) {
+  const { t, lang } = useI18n();
   const [query, setQuery] = useState("");
   const [barcodeInput, setBarcodeInput] = useState("");
   const debounced = useDebounced(query);
@@ -78,7 +75,8 @@ export function FoodSearchModal({
     },
   });
 
-  const mealLabel = MEALS.find((m) => m.key === mealType)?.label ?? "";
+  const mealName = mealLabel(t, mealType);
+  const quickDefaultName = t("food.quickDefaultName");
 
   const selectFood = (item: FoodItem, servingGrams = "100") => {
     setSelected(item);
@@ -107,7 +105,9 @@ export function FoodSearchModal({
     placeholderData: keepPreviousData,
   });
 
-  const searchErrorMessage = results.isError ? getOpenFoodFactsErrorMessage(results.error) : null;
+  const searchErrorMessage = results.isError
+    ? getOpenFoodFactsErrorMessage(results.error, lang)
+    : null;
   const showEmptyResults =
     !results.isFetching &&
     !results.isError &&
@@ -119,14 +119,14 @@ export function FoodSearchModal({
     onSuccess: (item) => {
       selectFood(item);
       setBarcodeInput(item.barcode ?? "");
-      toast.success("Produkt gefunden");
+      toast.success(t("fs.toast.productFound"));
     },
-    onError: (e: Error) => toast.error(getOpenFoodFactsErrorMessage(e)),
+    onError: (e: Error) => toast.error(getOpenFoodFactsErrorMessage(e, lang)),
   });
 
   const handleBarcodeLookup = () => {
     if (!barcodeInput.trim()) {
-      toast.error("Bitte Barcode eingeben oder scannen.");
+      toast.error(t("fs.toast.enterBarcode"));
       return;
     }
     barcodeLookup.mutate(barcodeInput);
@@ -142,12 +142,10 @@ export function FoodSearchModal({
       stopScan();
       const name = error instanceof DOMException ? error.name : "";
       if (name === "NotAllowedError" || name === "SecurityError") {
-        toast.error(
-          "Kamerazugriff wurde verweigert. Bitte in Safari unter Einstellungen erlauben.",
-        );
+        toast.error(t("fs.toast.cameraDenied"));
         return;
       }
-      toast.error("Scannen fehlgeschlagen. Bitte Berechtigung prüfen oder Barcode eintippen.");
+      toast.error(t("fs.toast.scanFailed"));
     }
   };
 
@@ -199,7 +197,7 @@ export function FoodSearchModal({
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Zum Tagebuch hinzugefügt");
+      toast.success(t("toast.addedToDiary"));
       queryClient.invalidateQueries({ queryKey: ["food_logs"] });
       setSelected(null);
       setQuery("");
@@ -234,13 +232,13 @@ export function FoodSearchModal({
     mutationFn: async () => {
       const calories = Number(quick.kcal);
       if (!Number.isFinite(calories) || calories < 0) {
-        throw new Error("Bitte gültige Kalorien eingeben.");
+        throw new Error(t("fs.toast.invalidKcal"));
       }
       const { error } = await supabase.from("food_logs").insert({
         user_id: userId,
         date,
         meal_type: mealType,
-        food_name: quick.name.trim() || QUICK_ADD_DEFAULT_NAME,
+        food_name: quick.name.trim() || quickDefaultName,
         brand: null,
         serving_size_g: 0,
         calories,
@@ -251,7 +249,7 @@ export function FoodSearchModal({
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Zum Tagebuch hinzugefügt");
+      toast.success(t("toast.addedToDiary"));
       queryClient.invalidateQueries({ queryKey: ["food_logs"] });
       setQuick({ name: "", kcal: "", p: "", c: "", f: "" });
       onOpenChange(false);
@@ -278,7 +276,7 @@ export function FoodSearchModal({
       return data;
     },
     onSuccess: (data) => {
-      toast.success("Eigenes Lebensmittel gespeichert");
+      toast.success(t("fs.toast.customSaved"));
       queryClient.invalidateQueries({ queryKey: ["custom_foods"] });
       setCf({ name: "", brand: "", kcal: "", p: "", c: "", f: "" });
       selectFood({
@@ -311,7 +309,7 @@ export function FoodSearchModal({
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Lebensmittel aktualisiert");
+      toast.success(t("fs.toast.customUpdated"));
       queryClient.invalidateQueries({ queryKey: ["custom_foods"] });
       setEditingCustom(null);
       setCf({ name: "", brand: "", kcal: "", p: "", c: "", f: "" });
@@ -329,7 +327,7 @@ export function FoodSearchModal({
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Lebensmittel gelöscht");
+      toast.success(t("fs.toast.customDeleted"));
       queryClient.invalidateQueries({ queryKey: ["custom_foods"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -351,11 +349,8 @@ export function FoodSearchModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>Nahrungsmittel hinzufügen — {mealLabel}</DialogTitle>
-          <DialogDescription>
-            Suche, scanne einen Barcode, fotografiere dein Essen oder lege ein eigenes Lebensmittel
-            an.
-          </DialogDescription>
+          <DialogTitle>{t("fs.title", { meal: mealName })}</DialogTitle>
+          <DialogDescription>{t("fs.description")}</DialogDescription>
         </DialogHeader>
 
         {selected ? (
@@ -364,16 +359,22 @@ export function FoodSearchModal({
               <p className="font-semibold text-slate-800">{selected.name}</p>
               {selected.brand && <p className="text-sm text-slate-500">{selected.brand}</p>}
               {selected.barcode && (
-                <p className="text-xs text-slate-400">Barcode: {selected.barcode}</p>
+                <p className="text-xs text-slate-400">
+                  {t("fs.barcodeLine", { code: selected.barcode })}
+                </p>
               )}
               <p className="mt-1 text-xs text-slate-400">
-                pro 100 g: {Math.round(selected.kcal100)} kcal · {selected.protein100} g E ·{" "}
-                {selected.carbs100} g KH · {selected.fat100} g F
+                {t("fs.per100", {
+                  kcal: Math.round(selected.kcal100),
+                  p: selected.protein100,
+                  c: selected.carbs100,
+                  f: selected.fat100,
+                })}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="grams">Menge (g)</Label>
+              <Label htmlFor="grams">{t("food.amountG")}</Label>
               <Input
                 id="grams"
                 type="number"
@@ -400,15 +401,15 @@ export function FoodSearchModal({
                   <p className="font-semibold">{preview.calories}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Eiweiß</p>
+                  <p className="text-xs text-muted-foreground">{t("macro.protein")}</p>
                   <p className="font-semibold">{preview.protein} g</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">KH</p>
+                  <p className="text-xs text-muted-foreground">{t("macro.carbsShort")}</p>
                   <p className="font-semibold">{preview.carbs} g</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Fett</p>
+                  <p className="text-xs text-muted-foreground">{t("macro.fat")}</p>
                   <p className="font-semibold">{preview.fat} g</p>
                 </div>
               </div>
@@ -416,10 +417,10 @@ export function FoodSearchModal({
 
             <div className="flex justify-between gap-2">
               <Button variant="ghost" onClick={() => setSelected(null)}>
-                Zurück zur Suche
+                {t("fs.backToSearch")}
               </Button>
               <Button onClick={() => addLog.mutate()} disabled={addLog.isPending}>
-                Zum Tagebuch hinzufügen
+                {t("fs.addToDiary")}
               </Button>
             </div>
           </div>
@@ -435,22 +436,22 @@ export function FoodSearchModal({
           <Tabs defaultValue="search" onValueChange={() => stopScan()}>
             <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="search" className="px-0.5 text-[11px] sm:text-sm">
-                Suche
+                {t("fs.tab.search")}
               </TabsTrigger>
               <TabsTrigger value="photo" className="px-0.5 text-[11px] sm:text-sm">
-                Foto
+                {t("fs.tab.photo")}
               </TabsTrigger>
               <TabsTrigger value="barcode" className="px-0.5 text-[11px] sm:text-sm">
-                Barcode
+                {t("fs.tab.barcode")}
               </TabsTrigger>
               <TabsTrigger value="own" className="px-0.5 text-[11px] sm:text-sm">
-                Eigene
+                {t("fs.tab.own")}
               </TabsTrigger>
               <TabsTrigger value="new" className="px-0.5 text-[11px] sm:text-sm">
-                Neu
+                {t("fs.tab.new")}
               </TabsTrigger>
               <TabsTrigger value="quick" className="px-0.5 text-[11px] sm:text-sm">
-                Schnell
+                {t("fs.tab.quick")}
               </TabsTrigger>
             </TabsList>
 
@@ -460,7 +461,7 @@ export function FoodSearchModal({
                 <Input
                   autoFocus
                   className="pl-9"
-                  placeholder="z. B. Haferflocken, Skyr, Banane…"
+                  placeholder={t("fs.searchPlaceholder")}
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                 />
@@ -470,12 +471,13 @@ export function FoodSearchModal({
                   <div className="space-y-1.5 pr-3">
                     {recents.length === 0 ? (
                       <p className="py-8 text-center text-sm text-muted-foreground">
-                        Zuletzt verwendete Lebensmittel erscheinen hier. Tippe mindestens 3 Zeichen,
-                        um zu suchen.
+                        {t("fs.recentsHint")}
                       </p>
                     ) : (
                       <>
-                        <p className="px-1 pb-1 text-xs font-medium text-slate-400">Zuletzt</p>
+                        <p className="px-1 pb-1 text-xs font-medium text-slate-400">
+                          {t("fs.recent")}
+                        </p>
                         {recents.map((food) => (
                           <button
                             key={`${food.name}|${food.brand ?? ""}|${food.kcal100}`}
@@ -485,8 +487,10 @@ export function FoodSearchModal({
                             <p className="text-sm font-medium">{food.name}</p>
                             <p className="text-xs text-muted-foreground">
                               {food.brand ? `${food.brand} · ` : ""}
-                              zuletzt {food.servingSizeG} g · {Math.round(food.kcal100)} kcal / 100
-                              g
+                              {t("fs.recentLine", {
+                                g: food.servingSizeG,
+                                kcal: Math.round(food.kcal100),
+                              })}
                             </p>
                           </button>
                         ))}
@@ -496,19 +500,20 @@ export function FoodSearchModal({
                 )}
                 {results.isPending && debounced.trim().length > 2 && (
                   <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
-                    <Loader2 className="size-4 animate-spin" /> Suche läuft…
+                    <Loader2 className="size-4 animate-spin" /> {t("fs.searching")}
                   </div>
                 )}
                 {results.isFetching && !results.isPending && (
-                  <p className="pb-2 text-center text-xs text-muted-foreground">Aktualisiere…</p>
+                  <p className="pb-2 text-center text-xs text-muted-foreground">
+                    {t("fs.updating")}
+                  </p>
                 )}
                 {searchErrorMessage && (
                   <p className="py-8 text-center text-sm text-destructive">{searchErrorMessage}</p>
                 )}
                 {showEmptyResults && (
                   <p className="py-8 text-center text-sm text-muted-foreground">
-                    Keine Treffer für „{debounced.trim()}“ — lege das Lebensmittel unter „Neu
-                    anlegen“ an.
+                    {t("fs.noResults", { query: debounced.trim() })}
                   </p>
                 )}
                 <div className="space-y-1.5 pr-3">
@@ -522,8 +527,12 @@ export function FoodSearchModal({
                         <p className="text-sm font-medium">{item.name}</p>
                         <p className="text-xs text-muted-foreground">
                           {item.brand ? `${item.brand} · ` : ""}
-                          {Math.round(item.kcal100)} kcal / 100 g · {item.protein100} g E ·{" "}
-                          {item.carbs100} g KH · {item.fat100} g F
+                          {t("fs.resultLine", {
+                            kcal: Math.round(item.kcal100),
+                            p: item.protein100,
+                            c: item.carbs100,
+                            f: item.fat100,
+                          })}
                         </p>
                       </button>
                     ))}
@@ -534,8 +543,7 @@ export function FoodSearchModal({
             <TabsContent value="photo">
               {demo ? (
                 <p className="rounded-2xl bg-orange-50 p-4 text-sm text-orange-800">
-                  Die KI-Fotoanalyse ist im Demo-Modus deaktiviert. Mit einem eigenen Konto erkennt
-                  sie Mahlzeiten auf Fotos und schätzt Kalorien und Makros.
+                  {t("fs.photoDemo")}
                 </p>
               ) : (
                 <FoodPhotoCapture onAnalyzed={(items) => setPhotoDrafts(toPhotoDrafts(items))} />
@@ -543,15 +551,13 @@ export function FoodSearchModal({
             </TabsContent>
 
             <TabsContent value="barcode" className="space-y-3">
-              <p className="text-sm text-muted-foreground">
-                EAN/UPC-Barcode eingeben oder mit der Kamera scannen.
-              </p>
+              <p className="text-sm text-muted-foreground">{t("fs.barcodeHint")}</p>
               <div className="relative">
                 <Barcode className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   className="pl-9"
                   inputMode="numeric"
-                  placeholder="z. B. 4008400402224"
+                  placeholder={t("fs.barcodePlaceholder")}
                   value={barcodeInput}
                   onChange={(e) => setBarcodeInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleBarcodeLookup()}
@@ -566,11 +572,11 @@ export function FoodSearchModal({
                 >
                   {barcodeLookup.isPending ? (
                     <>
-                      <Loader2 className="size-4 animate-spin" /> Suche…
+                      <Loader2 className="size-4 animate-spin" /> {t("fs.barcodeSearching")}
                     </>
                   ) : (
                     <>
-                      <Search className="size-4" /> Produkt laden
+                      <Search className="size-4" /> {t("fs.loadProduct")}
                     </>
                   )}
                 </Button>
@@ -581,7 +587,7 @@ export function FoodSearchModal({
                     onClick={scanning ? stopScan : handleScan}
                   >
                     <Camera className="size-4" />
-                    {scanning ? "Stoppen" : "Scannen"}
+                    {scanning ? t("fs.stop") : t("fs.scan")}
                   </Button>
                 ) : null}
               </div>
@@ -599,14 +605,14 @@ export function FoodSearchModal({
                 />
                 {scanning ? (
                   <p className="bg-muted px-3 py-2 text-center text-xs text-muted-foreground">
-                    Barcode in den Rahmen halten…
+                    {t("fs.holdBarcode")}
                   </p>
                 ) : null}
               </div>
 
               {barcodeLookup.isError && (
                 <p className="text-sm text-destructive">
-                  {getOpenFoodFactsErrorMessage(barcodeLookup.error)}
+                  {getOpenFoodFactsErrorMessage(barcodeLookup.error, lang)}
                 </p>
               )}
             </TabsContent>
@@ -614,7 +620,7 @@ export function FoodSearchModal({
             <TabsContent value="own">
               {editingCustom ? (
                 <div className="space-y-3">
-                  <p className="text-sm font-medium text-slate-700">Bearbeiten</p>
+                  <p className="text-sm font-medium text-slate-700">{t("common.edit")}</p>
                   <CustomFoodFields cf={cf} setCf={setCf} idPrefix="edit" />
                   <div className="flex gap-2">
                     <Button
@@ -625,14 +631,14 @@ export function FoodSearchModal({
                         setCf({ name: "", brand: "", kcal: "", p: "", c: "", f: "" });
                       }}
                     >
-                      Abbrechen
+                      {t("common.cancel")}
                     </Button>
                     <Button
                       className="flex-1"
                       disabled={!cf.name || updateCustom.isPending}
                       onClick={() => updateCustom.mutate()}
                     >
-                      Speichern
+                      {t("common.save")}
                     </Button>
                   </div>
                 </div>
@@ -641,7 +647,7 @@ export function FoodSearchModal({
                   <div className="space-y-1.5 pr-3">
                     {customFoods.data?.length === 0 && (
                       <p className="py-8 text-center text-sm text-muted-foreground">
-                        Noch keine eigenen Lebensmittel.
+                        {t("fs.noCustom")}
                       </p>
                     )}
                     {customFoods.data?.map((item) => (
@@ -666,14 +672,14 @@ export function FoodSearchModal({
                           <p className="text-sm font-medium">{item.name}</p>
                           <p className="text-xs text-muted-foreground">
                             {item.brand ? `${item.brand} · ` : ""}
-                            {Number(item.calories_per_100g)} kcal / 100 g
+                            {t("fs.customLine", { kcal: Number(item.calories_per_100g) })}
                           </p>
                         </button>
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
-                          aria-label="Bearbeiten"
+                          aria-label={t("common.edit")}
                           className="size-8 text-slate-400"
                           onClick={() => startEditCustom(item)}
                         >
@@ -683,14 +689,10 @@ export function FoodSearchModal({
                           type="button"
                           variant="ghost"
                           size="icon"
-                          aria-label="Löschen"
+                          aria-label={t("common.delete")}
                           className="size-8 text-slate-400 hover:text-rose-500"
                           onClick={() => {
-                            if (
-                              window.confirm(
-                                `„${item.name}“ wirklich löschen? Vorhandene Tagebuch-Einträge bleiben erhalten.`,
-                              )
-                            ) {
+                            if (window.confirm(t("fs.confirmDelete", { name: item.name }))) {
                               deleteCustom.mutate(item.id);
                             }
                           }}
@@ -711,20 +713,18 @@ export function FoodSearchModal({
                 disabled={!cf.name || createCustom.isPending || !!editingCustom}
                 onClick={() => createCustom.mutate()}
               >
-                <Plus className="size-4" /> Speichern & auswählen
+                <Plus className="size-4" /> {t("fs.saveAndSelect")}
               </Button>
             </TabsContent>
 
             <TabsContent value="quick" className="space-y-3">
-              <p className="text-sm text-muted-foreground">
-                Kalorien ohne Datenbank eintragen — z. B. Restaurant oder unterwegs.
-              </p>
+              <p className="text-sm text-muted-foreground">{t("fs.quickHint")}</p>
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2 space-y-2">
-                  <Label htmlFor="qn">Name (optional)</Label>
+                  <Label htmlFor="qn">{t("fs.nameOptional")}</Label>
                   <Input
                     id="qn"
-                    placeholder={QUICK_ADD_DEFAULT_NAME}
+                    placeholder={quickDefaultName}
                     value={quick.name}
                     onChange={(e) => setQuick({ ...quick, name: e.target.value })}
                   />
@@ -740,7 +740,9 @@ export function FoodSearchModal({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="qp">Eiweiß (g)</Label>
+                  <Label htmlFor="qp">
+                    {t("macro.protein")} {t("food.unitG")}
+                  </Label>
                   <Input
                     id="qp"
                     type="number"
@@ -751,7 +753,9 @@ export function FoodSearchModal({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="qc">Kohlenhydrate (g)</Label>
+                  <Label htmlFor="qc">
+                    {t("macro.carbs")} {t("food.unitG")}
+                  </Label>
                   <Input
                     id="qc"
                     type="number"
@@ -762,7 +766,9 @@ export function FoodSearchModal({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="qf">Fett (g)</Label>
+                  <Label htmlFor="qf">
+                    {t("macro.fat")} {t("food.unitG")}
+                  </Label>
                   <Input
                     id="qf"
                     type="number"
@@ -778,7 +784,7 @@ export function FoodSearchModal({
                 disabled={quick.kcal.trim() === "" || addQuick.isPending}
                 onClick={() => addQuick.mutate()}
               >
-                Zum Tagebuch hinzufügen
+                {t("fs.addToDiary")}
               </Button>
             </TabsContent>
           </Tabs>
@@ -806,10 +812,11 @@ function CustomFoodFields({
   setCf: (next: CustomFoodForm) => void;
   idPrefix: string;
 }) {
+  const t = useT();
   return (
     <div className="grid grid-cols-2 gap-3">
       <div className="col-span-2 space-y-2">
-        <Label htmlFor={`${idPrefix}-cfn`}>Name</Label>
+        <Label htmlFor={`${idPrefix}-cfn`}>{t("fs.name")}</Label>
         <Input
           id={`${idPrefix}-cfn`}
           value={cf.name}
@@ -817,7 +824,7 @@ function CustomFoodFields({
         />
       </div>
       <div className="col-span-2 space-y-2">
-        <Label htmlFor={`${idPrefix}-cfb`}>Marke (optional)</Label>
+        <Label htmlFor={`${idPrefix}-cfb`}>{t("fs.brandOptional")}</Label>
         <Input
           id={`${idPrefix}-cfb`}
           value={cf.brand}
@@ -825,7 +832,7 @@ function CustomFoodFields({
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor={`${idPrefix}-cfk`}>kcal / 100 g</Label>
+        <Label htmlFor={`${idPrefix}-cfk`}>{t("fs.kcalPer100")}</Label>
         <Input
           id={`${idPrefix}-cfk`}
           type="number"
@@ -834,7 +841,9 @@ function CustomFoodFields({
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor={`${idPrefix}-cfp`}>Eiweiß / 100 g</Label>
+        <Label htmlFor={`${idPrefix}-cfp`}>
+          {t("fs.per100Label", { label: t("macro.protein") })}
+        </Label>
         <Input
           id={`${idPrefix}-cfp`}
           type="number"
@@ -843,7 +852,9 @@ function CustomFoodFields({
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor={`${idPrefix}-cfc`}>Kohlenhydrate / 100 g</Label>
+        <Label htmlFor={`${idPrefix}-cfc`}>
+          {t("fs.per100Label", { label: t("macro.carbs") })}
+        </Label>
         <Input
           id={`${idPrefix}-cfc`}
           type="number"
@@ -852,7 +863,7 @@ function CustomFoodFields({
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor={`${idPrefix}-cff`}>Fett / 100 g</Label>
+        <Label htmlFor={`${idPrefix}-cff`}>{t("fs.per100Label", { label: t("macro.fat") })}</Label>
         <Input
           id={`${idPrefix}-cff`}
           type="number"

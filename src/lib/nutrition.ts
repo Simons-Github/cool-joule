@@ -1,27 +1,26 @@
+import { localeFor, translate, type Lang, type MessageKey, type TFunction } from "@/lib/i18n";
+
 export type Gender = "male" | "female";
 export type ActivityLevel = "sedentary" | "light" | "moderate" | "very";
 export type Goal = "lose" | "maintain" | "gain";
 export type MealType = "breakfast" | "lunch" | "dinner" | "snacks";
 
-export const MEALS: { key: MealType; label: string }[] = [
-  { key: "breakfast", label: "Frühstück" },
-  { key: "lunch", label: "Mittagessen" },
-  { key: "dinner", label: "Abendessen" },
-  { key: "snacks", label: "Snacks" },
-];
+/** Stored ids (saved in Supabase as `meal_type`): never translate these, only their labels. */
+export const MEAL_TYPES: readonly MealType[] = ["breakfast", "lunch", "dinner", "snacks"];
+export const ACTIVITY_LEVELS: readonly ActivityLevel[] = ["sedentary", "light", "moderate", "very"];
+export const GOALS: readonly Goal[] = ["lose", "maintain", "gain"];
 
-export const ACTIVITY_LABELS: Record<ActivityLevel, string> = {
-  sedentary: "Wenig aktiv (Bürojob)",
-  light: "Leicht aktiv (1–2x Sport)",
-  moderate: "Mäßig aktiv (3–5x Sport)",
-  very: "Sehr aktiv (6–7x Sport)",
-};
+export function mealLabel(t: TFunction, meal: string): string {
+  return (MEAL_TYPES as readonly string[]).includes(meal) ? t(`meal.${meal as MealType}`) : meal;
+}
 
-export const GOAL_LABELS: Record<Goal, string> = {
-  lose: "Abnehmen",
-  maintain: "Gewicht halten",
-  gain: "Muskelaufbau",
-};
+export function activityLabel(t: TFunction, level: ActivityLevel): string {
+  return t(`activity.${level}`);
+}
+
+export function goalLabel(t: TFunction, goal: Goal): string {
+  return t(`goal.${goal}`);
+}
 
 const ACTIVITY_FACTORS: Record<ActivityLevel, number> = {
   sedentary: 1.2,
@@ -88,14 +87,25 @@ export function addDays(iso: string, days: number): string {
   return toISO(date);
 }
 
-export function formatGermanDate(iso: string): string {
+/** "Today" / "Yesterday" / "Tomorrow", otherwise a short localized date. */
+export function formatDiaryDate(iso: string, lang: Lang = "de"): string {
   const date = fromISO(iso);
-  if (iso === todayISO()) return "Heute";
-  if (iso === addDays(todayISO(), -1)) return "Gestern";
-  if (iso === addDays(todayISO(), 1)) return "Morgen";
-  return date.toLocaleDateString("de-DE", {
+  const relative: [string, MessageKey][] = [
+    [todayISO(), "date.today"],
+    [addDays(todayISO(), -1), "date.yesterday"],
+    [addDays(todayISO(), 1), "date.tomorrow"],
+  ];
+  for (const [day, key] of relative) {
+    if (iso === day) return translate(lang, key);
+  }
+  return date.toLocaleDateString(localeFor(lang), {
     weekday: "short",
     day: "2-digit",
     month: "short",
   });
+}
+
+/** German short form, kept for existing callers and tests. */
+export function formatGermanDate(iso: string): string {
+  return formatDiaryDate(iso, "de");
 }

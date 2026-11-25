@@ -3,9 +3,11 @@
 import * as React from "react";
 import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { DayButton, DayPicker, getDefaultClassNames } from "react-day-picker";
+import { de, enGB } from "react-day-picker/locale";
 
 import { cn } from "@/lib/utils";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { useI18n } from "@/lib/i18n/react";
 
 function Calendar({
   className,
@@ -20,9 +22,11 @@ function Calendar({
   buttonVariant?: React.ComponentProps<typeof Button>["variant"];
 }) {
   const defaultClassNames = getDefaultClassNames();
+  const { lang, locale } = useI18n();
 
   return (
     <DayPicker
+      locale={lang === "en" ? enGB : de}
       showOutsideDays={showOutsideDays}
       className={cn(
         "bg-background group/calendar p-3 [--cell-size:2rem] [[data-slot=card-content]_&]:bg-transparent [[data-slot=popover-content]_&]:bg-transparent",
@@ -32,7 +36,7 @@ function Calendar({
       )}
       captionLayout={captionLayout}
       formatters={{
-        formatMonthDropdown: (date) => date.toLocaleString("default", { month: "short" }),
+        formatMonthDropdown: (date) => date.toLocaleString(locale, { month: "short" }),
         ...formatters,
       }}
       classNames={{

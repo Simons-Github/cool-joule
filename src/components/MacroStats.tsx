@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n/react";
 
 export type MacroColorVar = "protein" | "carbs" | "fat";
 
@@ -33,6 +34,7 @@ export function MacroBar({
 }
 
 export function CalorieRing({ consumed, target }: { consumed: number; target: number }) {
+  const t = useT();
   const remaining = Math.round(target - consumed);
   const pct = target > 0 ? Math.min(1, consumed / target) : 0;
   const size = 148;
@@ -75,7 +77,7 @@ export function CalorieRing({ consumed, target }: { consumed: number; target: nu
         >
           {remaining}
         </span>
-        <span className="text-xs text-slate-400">kcal übrig</span>
+        <span className="text-xs text-slate-400">{t("macro.kcalLeft")}</span>
       </div>
     </div>
   );

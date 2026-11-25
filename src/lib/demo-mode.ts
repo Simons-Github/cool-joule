@@ -1,3 +1,5 @@
+import { translate, type Lang } from "@/lib/i18n";
+
 /**
  * Demo mode = a Supabase anonymous user (`signInAnonymously`). Each visitor gets
  * an isolated sandbox through the normal per-user RLS policies. Features that
@@ -5,6 +7,7 @@
  * in the UI and in the server functions.
  */
 
+/** German text thrown by server functions (not localized yet); kept stable. */
 export const DEMO_FEATURE_DISABLED_MESSAGE =
   "Im Demo-Modus nicht verfügbar. Erstelle ein eigenes Konto, um diese Funktion zu nutzen.";
 
@@ -26,12 +29,15 @@ export function assertNotDemoUser(user: { isAnonymous: boolean }, message?: stri
   if (user.isAnonymous) throw new DemoModeError(message);
 }
 
-export function getDemoStartErrorMessage(error: { code?: string | undefined } | null): string {
+export function getDemoStartErrorMessage(
+  error: { code?: string | undefined } | null,
+  lang: Lang = "de",
+): string {
   if (error?.code === "anonymous_provider_disabled") {
-    return "Der Demo-Modus ist gerade nicht verfügbar. Bitte melde dich an oder erstelle ein Konto.";
+    return translate(lang, "demo.start.providerDisabled");
   }
   if (error?.code === "over_request_rate_limit" || error?.code === "over_email_send_rate_limit") {
-    return "Gerade starten sehr viele Demos. Bitte versuche es in ein paar Minuten erneut.";
+    return translate(lang, "demo.start.rateLimited");
   }
-  return "Die Demo konnte nicht gestartet werden. Bitte später erneut versuchen.";
+  return translate(lang, "demo.start.failed");
 }

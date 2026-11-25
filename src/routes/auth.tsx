@@ -7,34 +7,37 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { APP_NAME } from "@/lib/app-config";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { translate } from "@/lib/i18n";
+import { useI18n } from "@/lib/i18n/react";
 import { getDemoStartErrorMessage } from "@/lib/demo-mode";
 import { seedDemoAccount } from "@/lib/demo-seed";
 import {
   PASSWORD_MIN_LENGTH,
-  PASSWORD_REQUIREMENTS_HINT,
+  passwordRequirementsHint,
   mapAuthErrorMessage,
   validatePassword,
 } from "@/lib/password";
 
 export const Route = createFileRoute("/auth")({
-  head: () => ({
-    meta: [
-      { title: `Anmelden — ${APP_NAME}` },
-      {
-        name: "description",
-        content: `Melde dich bei ${APP_NAME} an und tracke Kalorien und Makros.`,
-      },
-      { property: "og:title", content: `Anmelden — ${APP_NAME}` },
-      {
-        property: "og:description",
-        content: `Melde dich bei ${APP_NAME} an und tracke Kalorien und Makros.`,
-      },
-    ],
-  }),
+  head: ({ match }) => {
+    const lang = match.context.lang;
+    const title = translate(lang, "auth.meta.title", { app: APP_NAME });
+    const description = translate(lang, "auth.meta.description", { app: APP_NAME });
+    return {
+      meta: [
+        { title },
+        { name: "description", content: description },
+        { property: "og:title", content: title },
+        { property: "og:description", content: description },
+      ],
+    };
+  },
   component: AuthPage,
 });
 
 function AuthPage() {
+  const { t, lang } = useI18n();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -74,7 +77,7 @@ function AuthPage() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) {
-      toast.error(mapAuthErrorMessage(error));
+      toast.error(mapAuthErrorMessage(error, lang));
       return;
     }
     navigate({ to: "/tagebuch", replace: true });
@@ -82,7 +85,7 @@ function AuthPage() {
 
   async function signUp(e: React.FormEvent) {
     e.preventDefault();
-    const passwordError = validatePassword(password);
+    const passwordError = validatePassword(password, lang);
     if (passwordError) {
       toast.error(passwordError);
       return;
@@ -95,11 +98,11 @@ function AuthPage() {
     });
     setLoading(false);
     if (error) {
-      toast.error(mapAuthErrorMessage(error));
+      toast.error(mapAuthErrorMessage(error, lang));
       return;
     }
     if (!data.session) {
-      toast.success("Fast geschafft! Bestätige bitte deine E-Mail-Adresse.");
+      toast.success(t("auth.confirmEmail"));
       return;
     }
     navigate({ to: "/tagebuch", replace: true });
@@ -108,7 +111,7 @@ function AuthPage() {
   async function sendReset(e: React.FormEvent) {
     e.preventDefault();
     if (!email.trim()) {
-      toast.error("Bitte eine E-Mail-Adresse eingeben.");
+      toast.error(t("auth.enterEmail"));
       return;
     }
     setLoading(true);
@@ -117,16 +120,16 @@ function AuthPage() {
     });
     setLoading(false);
     if (error) {
-      toast.error(mapAuthErrorMessage(error));
+      toast.error(mapAuthErrorMessage(error, lang));
       return;
     }
-    toast.success("Wenn ein Konto existiert, erhältst du eine E-Mail zum Zurücksetzen.");
+    toast.success(t("auth.resetSent"));
     setForgotPassword(false);
   }
 
   async function updatePassword(e: React.FormEvent) {
     e.preventDefault();
-    const passwordError = validatePassword(newPassword);
+    const passwordError = validatePassword(newPassword, lang);
     if (passwordError) {
       toast.error(passwordError);
       return;
@@ -135,13 +138,13 @@ function AuthPage() {
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     setLoading(false);
     if (error) {
-      toast.error(mapAuthErrorMessage(error));
+      toast.error(mapAuthErrorMessage(error, lang));
       return;
     }
     recoveringRef.current = false;
     setRecovery(false);
     setNewPassword("");
-    toast.success("Passwort aktualisiert");
+    toast.success(t("auth.passwordUpdated"));
     navigate({ to: "/tagebuch", replace: true });
   }
 
@@ -151,14 +154,14 @@ function AuthPage() {
     try {
       const { data, error } = await supabase.auth.signInAnonymously();
       if (error || !data.user) {
-        toast.error(getDemoStartErrorMessage(error));
+        toast.error(getDemoStartErrorMessage(error, lang));
         return;
       }
       try {
         await seedDemoAccount(supabase, data.user.id);
       } catch {
         // The empty account is still usable; the onboarding dialog takes over.
-        toast.error("Beispieldaten konnten nicht geladen werden.");
+        toast.error(t("auth.demoSeedFailed"));
       }
       navigate({ to: "/tagebuch", replace: true });
     } finally {
@@ -177,12 +180,15 @@ function AuthPage() {
     });
     setLoading(false);
     if (error) {
-      toast.error(error.message || "Google-Anmeldung fehlgeschlagen");
+      toast.error(error.message || t("auth.googleFailed"));
     }
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-orange-50 to-rose-50 px-4">
+    <div className="relative flex min-h-screen items-center justify-center bg-gradient-to-br from-orange-50 to-rose-50 px-4">
+      <div className="absolute right-4 top-4">
+        <LanguageSwitcher />
+      </div>
       <div className="w-full max-w-sm">
         {/* Mascot — links zur Startseite */}
         <Link
@@ -191,7 +197,7 @@ function AuthPage() {
         >
           <img
             src="/mascot.png"
-            alt="Cool Joule Maskottchen"
+            alt={t("brand.mascotAlt")}
             className="mx-auto mb-1 h-28 w-28 object-contain drop-shadow-lg"
           />
           <span className="text-xl font-bold tracking-tight text-slate-800">{APP_NAME}</span>
@@ -200,11 +206,11 @@ function AuthPage() {
         <div className="rounded-3xl bg-white p-6 shadow-2xl shadow-rose-100/60">
           {recovery ? (
             <form onSubmit={updatePassword} className="space-y-3">
-              <h2 className="text-lg font-semibold text-slate-800">Neues Passwort</h2>
-              <p className="text-sm text-slate-500">Vergib ein neues Passwort für dein Konto.</p>
+              <h2 className="text-lg font-semibold text-slate-800">{t("auth.newPassword")}</h2>
+              <p className="text-sm text-slate-500">{t("auth.newPasswordIntro")}</p>
               <div className="space-y-1.5">
                 <Label htmlFor="new-password" className="text-slate-600">
-                  Neues Passwort
+                  {t("auth.newPassword")}
                 </Label>
                 <Input
                   id="new-password"
@@ -217,22 +223,20 @@ function AuthPage() {
                   className="border-0 bg-slate-50 focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:ring-offset-0 rounded-xl"
                 />
                 <p id="new-password-hint" className="text-xs text-slate-400">
-                  {PASSWORD_REQUIREMENTS_HINT}
+                  {passwordRequirementsHint(lang)}
                 </p>
               </div>
               <Button type="submit" className="w-full rounded-xl" disabled={loading}>
-                Passwort speichern
+                {t("auth.savePassword")}
               </Button>
             </form>
           ) : forgotPassword ? (
             <form onSubmit={sendReset} className="space-y-3">
-              <h2 className="text-lg font-semibold text-slate-800">Passwort vergessen</h2>
-              <p className="text-sm text-slate-500">
-                Wir schicken einen Link zum Zurücksetzen an deine E-Mail-Adresse.
-              </p>
+              <h2 className="text-lg font-semibold text-slate-800">{t("auth.forgotTitle")}</h2>
+              <p className="text-sm text-slate-500">{t("auth.forgotIntro")}</p>
               <div className="space-y-1.5">
                 <Label htmlFor="reset-email" className="text-slate-600">
-                  E-Mail
+                  {t("auth.email")}
                 </Label>
                 <Input
                   id="reset-email"
@@ -244,14 +248,14 @@ function AuthPage() {
                 />
               </div>
               <Button type="submit" className="w-full rounded-xl" disabled={loading}>
-                Link senden
+                {t("auth.sendLink")}
               </Button>
               <button
                 type="button"
                 className="w-full text-sm text-rose-600 hover:underline"
                 onClick={() => setForgotPassword(false)}
               >
-                Zurück zur Anmeldung
+                {t("auth.backToSignIn")}
               </button>
             </form>
           ) : (
@@ -263,13 +267,13 @@ function AuthPage() {
                     value="login"
                     className="rounded-xl text-slate-500 data-[state=active]:bg-white data-[state=active]:text-rose-700 data-[state=active]:shadow-sm"
                   >
-                    Anmelden
+                    {t("auth.signIn")}
                   </TabsTrigger>
                   <TabsTrigger
                     value="signup"
                     className="rounded-xl text-slate-500 data-[state=active]:bg-white data-[state=active]:text-rose-700 data-[state=active]:shadow-sm"
                   >
-                    Registrieren
+                    {t("auth.signUp")}
                   </TabsTrigger>
                 </TabsList>
 
@@ -277,7 +281,7 @@ function AuthPage() {
                   <form onSubmit={signIn} className="space-y-3">
                     <div className="space-y-1.5">
                       <Label htmlFor="e1" className="text-slate-600">
-                        E-Mail
+                        {t("auth.email")}
                       </Label>
                       <Input
                         id="e1"
@@ -290,7 +294,7 @@ function AuthPage() {
                     </div>
                     <div className="space-y-1.5">
                       <Label htmlFor="p1" className="text-slate-600">
-                        Passwort
+                        {t("auth.password")}
                       </Label>
                       <Input
                         id="p1"
@@ -302,14 +306,14 @@ function AuthPage() {
                       />
                     </div>
                     <Button type="submit" className="w-full rounded-xl" disabled={loading}>
-                      Anmelden
+                      {t("auth.signIn")}
                     </Button>
                     <button
                       type="button"
                       className="w-full text-sm text-rose-600 hover:underline"
                       onClick={() => setForgotPassword(true)}
                     >
-                      Passwort vergessen?
+                      {t("auth.forgotLink")}
                     </button>
                   </form>
                 </TabsContent>
@@ -318,7 +322,7 @@ function AuthPage() {
                   <form onSubmit={signUp} className="space-y-3">
                     <div className="space-y-1.5">
                       <Label htmlFor="e2" className="text-slate-600">
-                        E-Mail
+                        {t("auth.email")}
                       </Label>
                       <Input
                         id="e2"
@@ -331,7 +335,7 @@ function AuthPage() {
                     </div>
                     <div className="space-y-1.5">
                       <Label htmlFor="p2" className="text-slate-600">
-                        Passwort
+                        {t("auth.password")}
                       </Label>
                       <Input
                         id="p2"
@@ -344,18 +348,18 @@ function AuthPage() {
                         className="border-0 bg-slate-50 focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:ring-offset-0 rounded-xl"
                       />
                       <p id="p2-hint" className="text-xs text-slate-400">
-                        {PASSWORD_REQUIREMENTS_HINT}
+                        {passwordRequirementsHint(lang)}
                       </p>
                     </div>
                     <Button type="submit" className="w-full rounded-xl" disabled={loading}>
-                      Konto erstellen
+                      {t("auth.createAccount")}
                     </Button>
                   </form>
                 </TabsContent>
               </Tabs>
 
               <div className="my-4 flex items-center gap-3 text-xs text-slate-400">
-                <span className="h-px flex-1 bg-slate-100" /> oder{" "}
+                <span className="h-px flex-1 bg-slate-100" /> {t("auth.or")}{" "}
                 <span className="h-px flex-1 bg-slate-100" />
               </div>
 
@@ -382,14 +386,12 @@ function AuthPage() {
                     fill="#EA4335"
                   />
                 </svg>
-                Mit Google fortfahren
+                {t("auth.google")}
               </button>
 
               <div className="mt-5 rounded-2xl bg-orange-50 p-4 text-center">
-                <p className="text-sm font-medium text-slate-700">Erst mal reinschauen?</p>
-                <p className="mt-1 text-xs text-slate-500">
-                  Ohne Anmeldung, mit Beispieldaten. Demo-Konten werden regelmäßig gelöscht.
-                </p>
+                <p className="text-sm font-medium text-slate-700">{t("auth.demoTitle")}</p>
+                <p className="mt-1 text-xs text-slate-500">{t("auth.demoText")}</p>
                 <Button
                   type="button"
                   variant="outline"
@@ -397,7 +399,7 @@ function AuthPage() {
                   disabled={loading}
                   className="mt-3 w-full rounded-xl border-orange-200 bg-white text-orange-700 hover:bg-orange-100 hover:text-orange-800"
                 >
-                  Demo ausprobieren
+                  {t("auth.demoButton")}
                 </Button>
               </div>
             </>

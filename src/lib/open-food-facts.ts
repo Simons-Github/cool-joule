@@ -1,4 +1,5 @@
 import { APP_NAME, APP_SLUG } from "@/lib/app-config";
+import { translate, type Lang } from "@/lib/i18n";
 
 /** Elasticsearch text search — https://search.openfoodfacts.org */
 export const OFF_SEARCH_URL = "https://search.openfoodfacts.org/search";
@@ -375,8 +376,8 @@ export async function lookupProductByBarcode(
   return item;
 }
 
-export function getOpenFoodFactsErrorMessage(error: unknown): string {
+export function getOpenFoodFactsErrorMessage(error: unknown, lang: Lang = "de"): string {
   if (error instanceof OpenFoodFactsError) return error.message;
   if (error instanceof Error && error.message.trim()) return error.message;
-  return "Suche fehlgeschlagen. Bitte erneut versuchen.";
+  return translate(lang, "error.searchFailed");
 }

@@ -1,6 +1,5 @@
 import { addDays, todayISO } from "@/lib/nutrition";
 
-export const QUICK_ADD_DEFAULT_NAME = "Schnell erfasst";
 export const TARGET_TOLERANCE = 0.1;
 export const RECENT_FOOD_DAYS = 14;
 export const RECENT_FOOD_LIMIT = 20;

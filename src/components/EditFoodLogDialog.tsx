@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { MEALS, type MealType } from "@/lib/nutrition";
+import { useT } from "@/lib/i18n/react";
+import { MEAL_TYPES, mealLabel, type MealType } from "@/lib/nutrition";
 import { isQuickAddServing, scaleLoggedMacros } from "@/lib/food-log";
 import type { Database } from "@/integrations/supabase/types";
 import {
@@ -34,6 +35,7 @@ export function EditFoodLogDialog({
   userId: string;
   onClose: () => void;
 }) {
+  const t = useT();
   const queryClient = useQueryClient();
   const quickAdd = item ? isQuickAddServing(Number(item.serving_size_g)) : false;
   const [grams, setGrams] = useState("");
@@ -74,7 +76,7 @@ export function EditFoodLogDialog({
             ...(preview ?? {}),
           };
       if (!quickAdd && (!preview || preview.serving_size_g <= 0)) {
-        throw new Error("Bitte eine gültige Menge eingeben.");
+        throw new Error(t("edit.invalidAmount"));
       }
       const { error } = await supabase
         .from("food_logs")
@@ -84,7 +86,7 @@ export function EditFoodLogDialog({
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Eintrag aktualisiert");
+      toast.success(t("edit.updated"));
       queryClient.invalidateQueries({ queryKey: ["food_logs"] });
       onClose();
     },
@@ -95,7 +97,7 @@ export function EditFoodLogDialog({
     <Dialog open={!!item} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Eintrag bearbeiten</DialogTitle>
+          <DialogTitle>{t("edit.title")}</DialogTitle>
           <DialogDescription>
             {item?.food_name}
             {item?.brand ? ` · ${item.brand}` : ""}
@@ -104,15 +106,15 @@ export function EditFoodLogDialog({
 
         <div className="space-y-3">
           <div className="space-y-2">
-            <Label htmlFor="edit-meal">Mahlzeit</Label>
+            <Label htmlFor="edit-meal">{t("edit.meal")}</Label>
             <Select value={mealType} onValueChange={(v) => setMealType(v as MealType)}>
               <SelectTrigger id="edit-meal" className="rounded-xl">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {MEALS.map((meal) => (
-                  <SelectItem key={meal.key} value={meal.key}>
-                    {meal.label}
+                {MEAL_TYPES.map((meal) => (
+                  <SelectItem key={meal} value={meal}>
+                    {mealLabel(t, meal)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -132,7 +134,9 @@ export function EditFoodLogDialog({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-p">Eiweiß (g)</Label>
+                <Label htmlFor="edit-p">
+                  {t("macro.protein")} {t("food.unitG")}
+                </Label>
                 <Input
                   id="edit-p"
                   type="number"
@@ -143,7 +147,9 @@ export function EditFoodLogDialog({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-c">Kohlenhydrate (g)</Label>
+                <Label htmlFor="edit-c">
+                  {t("macro.carbs")} {t("food.unitG")}
+                </Label>
                 <Input
                   id="edit-c"
                   type="number"
@@ -154,7 +160,9 @@ export function EditFoodLogDialog({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-f">Fett (g)</Label>
+                <Label htmlFor="edit-f">
+                  {t("macro.fat")} {t("food.unitG")}
+                </Label>
                 <Input
                   id="edit-f"
                   type="number"
@@ -168,7 +176,7 @@ export function EditFoodLogDialog({
           ) : (
             <>
               <div className="space-y-2">
-                <Label htmlFor="edit-grams">Menge (g)</Label>
+                <Label htmlFor="edit-grams">{t("food.amountG")}</Label>
                 <Input
                   id="edit-grams"
                   type="number"
@@ -194,15 +202,15 @@ export function EditFoodLogDialog({
                     <p className="font-semibold">{preview.calories}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Eiweiß</p>
+                    <p className="text-xs text-muted-foreground">{t("macro.protein")}</p>
                     <p className="font-semibold">{preview.protein} g</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">KH</p>
+                    <p className="text-xs text-muted-foreground">{t("macro.carbsShort")}</p>
                     <p className="font-semibold">{preview.carbs} g</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Fett</p>
+                    <p className="text-xs text-muted-foreground">{t("macro.fat")}</p>
                     <p className="font-semibold">{preview.fat} g</p>
                   </div>
                 </div>
@@ -212,10 +220,10 @@ export function EditFoodLogDialog({
 
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="ghost" onClick={onClose}>
-              Abbrechen
+              {t("common.cancel")}
             </Button>
             <Button onClick={() => save.mutate()} disabled={save.isPending}>
-              Speichern
+              {t("common.save")}
             </Button>
           </div>
         </div>

@@ -1,3 +1,5 @@
+import { createT, type TFunction } from "@/lib/i18n";
+
 export const RETAIL_BARCODE_FORMATS = ["ean_13", "ean_8", "upc_a", "upc_e"] as const;
 export type RetailBarcodeFormat = (typeof RETAIL_BARCODE_FORMATS)[number];
 
@@ -51,9 +53,9 @@ export async function createBarcodeDetector(): Promise<BarcodeDetectorLike> {
   return createPonyfillBarcodeDetector([...RETAIL_BARCODE_FORMATS]);
 }
 
-export async function openCameraStream(): Promise<MediaStream> {
+export async function openCameraStream(t: TFunction = createT("de")): Promise<MediaStream> {
   if (!isCameraSupported()) {
-    throw new Error("Kamera wird nicht unterstützt.");
+    throw new Error(t("camera.unsupported"));
   }
 
   // Safari/iOS defaults to a low-resolution feed; barcodes are unreadable without a higher one.
@@ -80,7 +82,7 @@ export async function openCameraStream(): Promise<MediaStream> {
     }
   }
 
-  throw lastError instanceof Error ? lastError : new Error("Kamera konnte nicht geöffnet werden.");
+  throw lastError instanceof Error ? lastError : new Error(t("camera.openFailed"));
 }
 
 export function captureVideoFrame(

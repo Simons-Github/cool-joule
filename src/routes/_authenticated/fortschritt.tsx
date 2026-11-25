@@ -14,13 +14,15 @@ import {
 import { toast } from "sonner";
 import { CalendarDays } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { translate } from "@/lib/i18n";
+import { useI18n } from "@/lib/i18n/react";
 import { useProfile } from "@/hooks/useProfile";
 import { AppShell } from "@/components/AppShell";
 import { ErrorState } from "@/components/ErrorState";
 import {
   addDays,
   calculateTargets,
-  formatGermanDate,
+  formatDiaryDate,
   fromISO,
   toISO,
   todayISO,
@@ -39,17 +41,19 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/fortschritt")({
-  head: () => ({
-    meta: [
-      { title: `Fortschritt — ${APP_NAME}` },
-      { name: "description", content: "Verfolge deinen Gewichtsverlauf über 7, 30 oder 90 Tage." },
-      { property: "og:title", content: `Fortschritt — ${APP_NAME}` },
-      {
-        property: "og:description",
-        content: "Verfolge deinen Gewichtsverlauf über 7, 30 oder 90 Tage.",
-      },
-    ],
-  }),
+  head: ({ match }) => {
+    const lang = match.context.lang;
+    const title = translate(lang, "progress.meta.title", { app: APP_NAME });
+    const description = translate(lang, "progress.meta.description");
+    return {
+      meta: [
+        { title },
+        { name: "description", content: description },
+        { property: "og:title", content: title },
+        { property: "og:description", content: description },
+      ],
+    };
+  },
   component: ProgressPage,
 });
 
@@ -57,6 +61,7 @@ const RANGES = [7, 30, 90] as const;
 
 function ProgressPage() {
   const { user } = Route.useRouteContext();
+  const { t, tp, lang, locale } = useI18n();
   const [range, setRange] = useState<(typeof RANGES)[number]>(30);
   const [weight, setWeight] = useState("");
   const [entryDate, setEntryDate] = useState(todayISO());
@@ -108,7 +113,7 @@ function ProgressPage() {
   const log = useMutation({
     mutationFn: async () => {
       const value = Number(weight);
-      if (!value) throw new Error("Bitte ein gültiges Gewicht eingeben.");
+      if (!value) throw new Error(t("progress.invalidWeight"));
       // Upsert on (user_id, date): creates a new row for that day, or overwrites
       // the existing entry for that exact day — never touches other days.
       const { error } = await supabase
@@ -154,7 +159,7 @@ function ProgressPage() {
       }
     },
     onSuccess: () => {
-      toast.success("Gewicht gespeichert");
+      toast.success(t("progress.weightSaved"));
       setWeight("");
       queryClient.invalidateQueries({ queryKey: ["profile", user.id] });
       queryClient.invalidateQueries({ queryKey: ["weight_logs", user.id] });
@@ -169,10 +174,10 @@ function ProgressPage() {
       .map((w) => ({
         // Parse as a local calendar date, not UTC midnight, so the chart
         // doesn't shift a day off in timezones behind UTC.
-        date: fromISO(w.date).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" }),
+        date: fromISO(w.date).toLocaleDateString(locale, { day: "2-digit", month: "2-digit" }),
         kg: Number(w.weight_kg),
       }));
-  }, [weights.data, range]);
+  }, [weights.data, range, locale]);
 
   const targetWeight = profile.data?.target_weight;
   const cards = useMemo(() => {
@@ -182,18 +187,18 @@ function ProgressPage() {
     const diff = start !== null && current !== null ? current - start : null;
 
     return [
-      { label: "Startgewicht", value: start !== null ? `${start} kg` : "—" },
-      { label: "Aktuell", value: current !== null ? `${current} kg` : "—" },
+      { label: t("progress.startWeight"), value: start !== null ? `${start} kg` : "—" },
+      { label: t("progress.current"), value: current !== null ? `${current} kg` : "—" },
       {
-        label: "Veränderung",
+        label: t("progress.change"),
         value: diff !== null ? `${diff > 0 ? "+" : ""}${diff.toFixed(1)} kg` : "—",
       },
       {
-        label: "Zielgewicht",
+        label: t("progress.targetWeight"),
         value: targetWeight ? `${Number(targetWeight)} kg` : "—",
       },
     ];
-  }, [weights.data, targetWeight]);
+  }, [weights.data, targetWeight, t]);
 
   const dailyNutrition = useMemo(
     () =>
@@ -215,26 +220,29 @@ function ProgressPage() {
       dailyNutrition
         .filter((day) => day.hasFood)
         .map((day) => ({
-          date: fromISO(day.date).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" }),
+          date: fromISO(day.date).toLocaleDateString(locale, { day: "2-digit", month: "2-digit" }),
           kcal: Math.round(day.calories),
           target: calorieTarget,
         })),
-    [dailyNutrition, calorieTarget],
+    [dailyNutrition, calorieTarget, locale],
   );
   const nutritionCards = [
     {
-      label: "Ø kcal",
+      label: t("progress.avgKcal"),
       value: insights.avgCalories !== null ? String(insights.avgCalories) : "—",
     },
     {
-      label: "Ø Eiweiß",
+      label: t("progress.avgProtein"),
       value: insights.avgProtein !== null ? `${insights.avgProtein} g` : "—",
     },
     {
-      label: "Tage im Ziel",
+      label: t("progress.daysOnTarget"),
       value: `${insights.daysInTarget} / ${insights.loggedDays}`,
     },
-    { label: "Streak", value: insights.streak > 0 ? `${insights.streak} Tage` : "—" },
+    {
+      label: t("progress.streak"),
+      value: insights.streak > 0 ? tp("progress.streakDays", insights.streak) : "—",
+    },
   ];
 
   const isLoading = profile.isLoading || weights.isLoading;
@@ -242,12 +250,12 @@ function ProgressPage() {
 
   return (
     <AppShell>
-      <h1 className="text-2xl font-bold tracking-tight text-slate-800">Fortschritt</h1>
+      <h1 className="text-2xl font-bold tracking-tight text-slate-800">{t("progress.title")}</h1>
 
       {/* Weight input card */}
       <div className="mt-4 rounded-3xl bg-white p-5 shadow-xl shadow-rose-100/50">
         <Label htmlFor="wl" className="text-slate-700">
-          Gewicht eintragen (kg)
+          {t("progress.logWeight")}
         </Label>
         <div className="mt-2 flex flex-wrap gap-2">
           <Popover>
@@ -257,7 +265,7 @@ function ProgressPage() {
                 className="min-w-40 rounded-2xl border-rose-200 bg-white text-slate-700 shadow-sm hover:bg-rose-50"
               >
                 <CalendarDays className="size-4 text-rose-400" />
-                {formatGermanDate(entryDate)}
+                {formatDiaryDate(entryDate, lang)}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
@@ -274,7 +282,7 @@ function ProgressPage() {
             id="wl"
             type="number"
             step="0.1"
-            placeholder="z. B. 72,4"
+            placeholder={t("progress.weightPlaceholder")}
             className="min-w-32 flex-1 rounded-2xl"
             value={weight}
             onChange={(e) => setWeight(e.target.value)}
@@ -284,7 +292,7 @@ function ProgressPage() {
             disabled={log.isPending}
             className="rounded-2xl px-5"
           >
-            Speichern
+            {t("common.save")}
           </Button>
         </div>
       </div>
@@ -292,8 +300,8 @@ function ProgressPage() {
       {hasError ? (
         <div className="mt-4">
           <ErrorState
-            title="Fortschritt konnte nicht geladen werden"
-            message="Dein Gewichtsverlauf konnte nicht abgerufen werden. Bitte prüfe deine Internetverbindung."
+            title={t("progress.loadError.title")}
+            message={t("progress.loadError.message")}
             onRetry={() => {
               profile.refetch();
               weights.refetch();
@@ -317,7 +325,7 @@ function ProgressPage() {
           {/* Chart card */}
           <div className="mt-4 rounded-3xl bg-white p-5 shadow-lg shadow-rose-50">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="font-semibold text-slate-800">Gewichtsverlauf</h2>
+              <h2 className="font-semibold text-slate-800">{t("progress.weightChart")}</h2>
               <div className="flex gap-1">
                 {RANGES.map((r) => (
                   <Button
@@ -331,7 +339,7 @@ function ProgressPage() {
                     }
                     onClick={() => setRange(r)}
                   >
-                    {r} Tage
+                    {t("progress.rangeDays", { count: r })}
                   </Button>
                 ))}
               </div>
@@ -339,7 +347,7 @@ function ProgressPage() {
 
             {chartData.length === 0 ? (
               <p className="py-12 text-center text-sm text-slate-400">
-                Noch keine Einträge in diesem Zeitraum.
+                {t("progress.noWeightEntries")}
               </p>
             ) : (
               <div className="h-72">
@@ -364,7 +372,7 @@ function ProgressPage() {
                         boxShadow: "0 10px 40px rgba(244,63,94,0.12)",
                         color: "oklch(0.28 0.022 255)",
                       }}
-                      formatter={(v) => [`${v} kg`, "Gewicht"]}
+                      formatter={(v) => [`${v} kg`, t("progress.weight")]}
                     />
                     <Line
                       type="monotone"
@@ -390,13 +398,13 @@ function ProgressPage() {
           </div>
 
           <div className="mt-4 rounded-3xl bg-white p-5 shadow-lg shadow-rose-50">
-            <h2 className="mb-1 font-semibold text-slate-800">Kalorienverlauf</h2>
+            <h2 className="mb-1 font-semibold text-slate-800">{t("progress.calorieChart")}</h2>
             <p className="mb-4 text-xs text-slate-400">
-              Gegessen vs. Ziel (±10 % zählt als im Ziel) · letzte {range} Tage
+              {t("progress.calorieChartHint", { range })}
             </p>
             {nutritionChart.length === 0 ? (
               <p className="py-12 text-center text-sm text-slate-400">
-                Noch keine Ernährungseinträge in diesem Zeitraum.
+                {t("progress.noFoodEntries")}
               </p>
             ) : (
               <div className="h-72">
@@ -432,7 +440,7 @@ function ProgressPage() {
                     <Line
                       type="monotone"
                       dataKey="kcal"
-                      name="Gegessen"
+                      name={t("progress.eaten")}
                       stroke="var(--primary)"
                       strokeWidth={2.5}
                       dot={{ r: 3, fill: "var(--primary)" }}

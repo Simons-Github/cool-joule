@@ -7,14 +7,17 @@ import { APP_NAME } from "@/lib/app-config";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { isDemoUser } from "@/lib/demo-mode";
+import { useT } from "@/lib/i18n/react";
 
+// Route slugs stay German; only the labels are translated (via the `labelKey`).
 const NAV = [
-  { to: "/tagebuch", label: "Tagebuch", icon: BookOpen },
-  { to: "/fortschritt", label: "Fortschritt", icon: LineChart },
-  { to: "/profil", label: "Profil", icon: User2 },
+  { to: "/tagebuch", labelKey: "nav.diary", icon: BookOpen },
+  { to: "/fortschritt", labelKey: "nav.progress", icon: LineChart },
+  { to: "/profil", labelKey: "nav.profile", icon: User2 },
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const t = useT();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -36,7 +39,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <Link to="/tagebuch" className="flex items-center gap-2">
             <img
               src="/mascot.png"
-              alt="Cool Joule Logo"
+              alt={t("brand.logoAlt")}
               className="h-9 w-9 object-contain drop-shadow-sm"
             />
             <span className="text-lg font-bold tracking-tight text-slate-800">{APP_NAME}</span>
@@ -53,7 +56,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     "bg-rose-100 text-rose-700 font-semibold shadow-sm shadow-rose-200/60",
                 )}
               >
-                {item.label}
+                {t(item.labelKey)}
               </Link>
             ))}
           </nav>
@@ -63,7 +66,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               variant="ghost"
               size="icon"
               onClick={signOut}
-              aria-label="Abmelden"
+              aria-label={t("nav.signOut")}
               className="rounded-xl text-slate-400 hover:bg-rose-50 hover:text-rose-500"
             >
               <LogOut className="size-5" />
@@ -75,17 +78,14 @@ export function AppShell({ children }: { children: ReactNode }) {
       {demo && (
         <div className="border-b border-orange-100 bg-orange-50">
           <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 text-xs text-orange-800 sm:text-sm">
-            <span className="font-semibold">Demo-Modus</span>
-            <span className="text-orange-700/80">
-              Beispieldaten, nur für dich sichtbar. KI-Fotoanalyse und Integrationen sind
-              deaktiviert.
-            </span>
+            <span className="font-semibold">{t("demo.banner.title")}</span>
+            <span className="text-orange-700/80">{t("demo.banner.text")}</span>
             <button
               type="button"
               onClick={signOut}
               className="font-medium text-orange-800 underline underline-offset-2 hover:text-orange-900"
             >
-              Eigenes Konto erstellen
+              {t("demo.banner.createAccount")}
             </button>
           </div>
         </div>
@@ -108,7 +108,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 )}
               >
                 <item.icon className="size-5" />
-                {item.label}
+                {t(item.labelKey)}
               </Link>
             );
           })}

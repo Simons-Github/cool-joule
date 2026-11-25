@@ -1,6 +1,9 @@
 import { useEffect } from "react";
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { APP_NAME } from "@/lib/app-config";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { translate } from "@/lib/i18n";
+import { useT } from "@/lib/i18n/react";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/")({
@@ -10,24 +13,26 @@ export const Route = createFileRoute("/")({
     const { data } = await supabase.auth.getSession();
     if (data.session) throw redirect({ to: "/tagebuch" });
   },
-  head: () => ({
-    meta: [
-      { title: `${APP_NAME} — Kalorien & Makros einfach tracken` },
-      {
-        name: "description",
-        content: `${APP_NAME} ist dein Ernährungstagebuch: Kalorien zählen, Makros im Blick behalten und Gewicht verfolgen — kostenlos und auf Deutsch.`,
-      },
-      { property: "og:title", content: `${APP_NAME} — Kalorien & Makros einfach tracken` },
-      {
-        property: "og:description",
-        content: "Ernährungstagebuch mit Kalorienziel, Makro-Tracking und Gewichtsverlauf.",
-      },
-    ],
-  }),
+  head: ({ match }) => {
+    const lang = match.context.lang;
+    const title = translate(lang, "landing.meta.title", { app: APP_NAME });
+    return {
+      meta: [
+        { title },
+        {
+          name: "description",
+          content: translate(lang, "landing.meta.description", { app: APP_NAME }),
+        },
+        { property: "og:title", content: title },
+        { property: "og:description", content: translate(lang, "landing.meta.ogDescription") },
+      ],
+    };
+  },
   component: Landing,
 });
 
 function Landing() {
+  const t = useT();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -57,18 +62,21 @@ function Landing() {
         <Link to="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-80">
           <img
             src="/mascot.png"
-            alt="Cool Joule Logo"
+            alt={t("brand.logoAlt")}
             className="h-9 w-9 object-contain drop-shadow-sm"
           />
           <span className="text-base font-bold tracking-tight text-slate-800">{APP_NAME}</span>
         </Link>
 
-        <Link
-          to="/auth"
-          className="rounded-full bg-white px-6 py-2 text-sm font-medium text-slate-700 shadow-sm transition-all duration-200 hover:bg-rose-50 hover:shadow-md"
-        >
-          Anmelden
-        </Link>
+        <div className="flex items-center gap-3">
+          <LanguageSwitcher />
+          <Link
+            to="/auth"
+            className="rounded-full bg-white px-6 py-2 text-sm font-medium text-slate-700 shadow-sm transition-all duration-200 hover:bg-rose-50 hover:shadow-md"
+          >
+            {t("auth.signIn")}
+          </Link>
+        </div>
       </header>
 
       {/* Hero */}
@@ -78,7 +86,9 @@ function Landing() {
           {/* Badge — Tagebuch (oben links) */}
           <div className="animate-float absolute left-2 top-2 z-0 flex cursor-default flex-col items-center justify-center gap-1.5 rounded-[1.5rem] border border-rose-100 bg-rose-50/90 p-4 shadow-xl shadow-slate-200/50 backdrop-blur-sm transition-transform duration-200 hover:scale-105 -rotate-[12deg] scale-90 md:left-0 md:top-4 md:scale-100">
             <img src="/icon-apple.png" alt="" className="h-10 w-10 object-contain drop-shadow-sm" />
-            <span className="mt-0.5 text-[10px] font-semibold text-slate-600">Tagebuch</span>
+            <span className="mt-0.5 text-[10px] font-semibold text-slate-600">
+              {t("nav.diary")}
+            </span>
           </div>
 
           {/* Badge — Ziele (oben rechts) */}
@@ -88,20 +98,24 @@ function Landing() {
               alt=""
               className="h-10 w-10 object-contain drop-shadow-sm"
             />
-            <span className="mt-0.5 text-[10px] font-semibold text-slate-600">Ziele</span>
+            <span className="mt-0.5 text-[10px] font-semibold text-slate-600">
+              {t("landing.badge.goals")}
+            </span>
           </div>
 
           {/* Badge — Fortschritt (unten links) */}
           <div className="animate-float-slow absolute bottom-8 left-4 z-0 flex cursor-default flex-col items-center justify-center gap-1.5 rounded-[1.5rem] border border-orange-100 bg-orange-50/90 p-4 shadow-xl shadow-slate-200/50 backdrop-blur-sm transition-transform duration-200 hover:scale-105 -rotate-[6deg] scale-100 md:bottom-10 md:left-2">
             <img src="/icon-chart.png" alt="" className="h-10 w-10 object-contain drop-shadow-sm" />
-            <span className="mt-0.5 text-[10px] font-semibold text-slate-600">Fortschritt</span>
+            <span className="mt-0.5 text-[10px] font-semibold text-slate-600">
+              {t("nav.progress")}
+            </span>
           </div>
 
           {/* Mascot + soft contact shadow (grounds the strutting pose) */}
           <div className="relative z-10 flex flex-col items-center">
             <img
               src="/mascot.png"
-              alt="Cool Joule Maskottchen"
+              alt={t("brand.mascotAlt")}
               className="h-64 w-64 object-contain drop-shadow-md transition-transform duration-300 hover:scale-105 sm:h-72 sm:w-72"
             />
             {/* Flattened ellipse under the sneakers — denser core, soft falloff */}
@@ -119,12 +133,12 @@ function Landing() {
         {/* Headline */}
         <div className="mt-10 text-center">
           <h1 className="text-4xl font-extrabold leading-tight tracking-tight text-slate-900 md:text-5xl">
-            Kalorien tracken.
+            {t("landing.headline1")}
             <br />
-            Ganz einfach.
+            {t("landing.headline2")}
           </h1>
           <p className="mx-auto mt-4 max-w-xs text-base text-slate-600 md:text-lg">
-            Behalte deine Ernährung und Makros im Blick.
+            {t("landing.subline")}
           </p>
         </div>
 
@@ -133,7 +147,7 @@ function Landing() {
           to="/auth"
           className="mt-8 inline-flex items-center justify-center rounded-full bg-gradient-to-b from-rose-500 to-rose-600 px-8 py-3.5 text-base font-semibold tracking-wide text-white shadow-lg shadow-rose-500/30 ring-1 ring-inset ring-white/20 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-rose-500/40 active:translate-y-0 active:scale-[0.98]"
         >
-          Kostenlos starten
+          {t("landing.cta")}
         </Link>
       </main>
     </div>

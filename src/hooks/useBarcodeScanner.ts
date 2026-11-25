@@ -7,6 +7,7 @@ import {
   isCameraSupported,
   openCameraStream,
 } from "@/lib/barcode-scan";
+import { useT } from "@/lib/i18n/react";
 
 const SCAN_INTERVAL_MS = 180;
 
@@ -15,6 +16,7 @@ function stopTracks(stream: MediaStream | null | undefined) {
 }
 
 export function useBarcodeScanner() {
+  const t = useT();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -47,7 +49,7 @@ export function useBarcodeScanner() {
 
       stopScan();
       const session = sessionRef.current;
-      const streamPromise = openCameraStream();
+      const streamPromise = openCameraStream(t);
       const detectorPromise = createBarcodeDetector();
 
       try {
@@ -64,7 +66,7 @@ export function useBarcodeScanner() {
         const video = videoRef.current;
         if (!video) {
           stopTracks(stream);
-          throw new Error("Video-Element nicht bereit.");
+          throw new Error("Video element not ready.");
         }
 
         streamRef.current = stream;
@@ -83,7 +85,7 @@ export function useBarcodeScanner() {
           const onError = () => {
             video.removeEventListener("loadedmetadata", onLoaded);
             video.removeEventListener("error", onError);
-            reject(new Error("Kamerabild konnte nicht geladen werden."));
+            reject(new Error("Camera frame could not be loaded."));
           };
           if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
             onLoaded();
@@ -162,7 +164,7 @@ export function useBarcodeScanner() {
         throw error;
       }
     },
-    [stopScan],
+    [stopScan, t],
   );
 
   return { videoRef, scanning, supported, startScan, stopScan };

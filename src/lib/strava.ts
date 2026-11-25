@@ -1,3 +1,5 @@
+import { translate, type Lang } from "@/lib/i18n";
+
 export const STRAVA_SYNC_STALE_MS = 15 * 60 * 1000;
 export const STRAVA_BACKFILL_DAYS = 14;
 export const STRAVA_OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
@@ -50,10 +52,10 @@ export class StravaError extends Error {
   }
 }
 
-export function getStravaErrorMessage(error: unknown): string {
+export function getStravaErrorMessage(error: unknown, lang: Lang = "de"): string {
   if (error instanceof StravaError) return error.message;
   if (error instanceof Error && error.message.trim()) return error.message;
-  return "Strava konnte nicht verbunden werden.";
+  return translate(lang, "strava.error.fallback");
 }
 
 export function emptyStravaStatus(configured: boolean): StravaStatus {
