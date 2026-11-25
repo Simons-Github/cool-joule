@@ -2,9 +2,9 @@
 
 [![CI](https://github.com/Simons-Github/cool-joule/actions/workflows/ci.yml/badge.svg)](https://github.com/Simons-Github/cool-joule/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-A food diary for calories, macros and body weight. You can add food by search, barcode or meal photo. The interface is in German.
+A food diary for calories, macros and body weight. You can add food by search, barcode or meal photo. The interface is in German or English.
 
-**Live demo:** [joule.berger-labs.com](https://joule.berger-labs.com). Click **Demo ausprobieren** on the login screen to get a private account with two weeks of sample data. No sign-up needed.
+**Live demo:** [joule.berger-labs.com](https://joule.berger-labs.com). Click **Try the demo** (German: **Demo ausprobieren**) on the login screen to get a private account with two weeks of sample data. No sign-up needed.
 
 <img src="docs/screenshots/hero.png" alt="Diary, progress chart and food search on a phone" width="100%">
 
@@ -16,6 +16,7 @@ A food diary for calories, macros and body weight. You can add food by search, b
 - Calorie and macro targets from your profile (Mifflin-St Jeor), weight chart for 7, 30 or 90 days
 - Workouts from Strava or an iOS Shortcut, counted against the daily budget
 - Data export, account deletion, installable as a PWA
+- Interface in German or English, switchable on the landing page, login screen and profile
 
 <p>
   <img src="docs/screenshots/diary.png" alt="Diary on desktop" width="49%">
