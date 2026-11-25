@@ -1,3 +1,4 @@
+import { DemoModeError } from "@/lib/demo-mode";
 import { FoodPhotoError } from "@/lib/food-photo-analysis";
 import {
   getServerKeyQuotaExceededMessage,
@@ -20,10 +21,13 @@ async function getAdmin() {
 async function requirePhotoUser(): Promise<AuthenticatedUser> {
   const { requireAuthenticatedUser } = await import("@/lib/server-auth");
   try {
-    return await requireAuthenticatedUser(UNAUTHENTICATED_MESSAGE);
+    return await requireAuthenticatedUser(UNAUTHENTICATED_MESSAGE, { allowDemo: false });
   } catch (error) {
     if (error instanceof Error && error.message === UNAUTHENTICATED_MESSAGE) {
       throw new FoodPhotoError("UNAUTHENTICATED", UNAUTHENTICATED_MESSAGE);
+    }
+    if (error instanceof DemoModeError) {
+      throw new FoodPhotoError("DEMO_MODE", error.message);
     }
     throw error;
   }

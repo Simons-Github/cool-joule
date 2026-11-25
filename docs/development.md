@@ -55,6 +55,16 @@ A Gemini key saved in the profile takes precedence over the app-level key. Users
    - `http://localhost:5173/strava/callback`
    - `https://<production-domain>/auth`
    - `https://<production-domain>/strava/callback`
+5. **Demo mode** (the "Demo ausprobieren" button): turn on **Authentication > Sign In / Providers > Allow anonymous sign-ins**. Supabase rate-limits anonymous sign-ins per IP (**Authentication > Rate Limits**, default 30 per hour). Without this setting the button shows "Der Demo-Modus ist gerade nicht verfügbar".
+6. **Demo cleanup:** enable the `pg_cron` extension (**Database > Extensions**) and schedule the deletion of old anonymous users in the SQL editor. All user tables cascade from `auth.users`, so this removes their sample data too:
+
+   ```sql
+   select cron.schedule(
+     'delete-stale-demo-users',
+     '17 3 * * *',
+     $$delete from auth.users where is_anonymous and created_at < now() - interval '7 days'$$
+   );
+   ```
 
 ## Database tables
 
@@ -140,4 +150,5 @@ After changing `shortcuts/cool-joule-workout.plist`, re-sign the file on a Mac w
 | "Strava ist nicht konfiguriert"                   | `STRAVA_CLIENT_ID` or `STRAVA_CLIENT_SECRET` missing on this host                                       |
 | Photo analysis, tokens or Shortcut fail           | `SUPABASE_SECRET_KEY` or `USER_SECRETS_ENCRYPTION_KEY` is missing, or differs between Preview and Production |
 | Shortcut returns 401                              | Token was regenerated, the old URL is still in the Shortcut                                             |
+| "Der Demo-Modus ist gerade nicht verfügbar"        | Anonymous sign-ins are off in Supabase (see Supabase setup, step 5)                                     |
 | Shortcut cannot be imported                       | The file is signed; open it on the iPhone with the Shortcuts app                                        |

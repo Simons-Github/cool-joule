@@ -47,12 +47,15 @@ export function FoodSearchModal({
   mealType,
   date,
   userId,
+  demo = false,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   mealType: MealType;
   date: string;
   userId: string;
+  /** Demo users see the photo tab, but the AI analysis is switched off. */
+  demo?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [barcodeInput, setBarcodeInput] = useState("");
@@ -529,7 +532,14 @@ export function FoodSearchModal({
             </TabsContent>
 
             <TabsContent value="photo">
-              <FoodPhotoCapture onAnalyzed={(items) => setPhotoDrafts(toPhotoDrafts(items))} />
+              {demo ? (
+                <p className="rounded-2xl bg-orange-50 p-4 text-sm text-orange-800">
+                  Die KI-Fotoanalyse ist im Demo-Modus deaktiviert. Mit einem eigenen Konto erkennt
+                  sie Mahlzeiten auf Fotos und schätzt Kalorien und Makros.
+                </p>
+              ) : (
+                <FoodPhotoCapture onAnalyzed={(items) => setPhotoDrafts(toPhotoDrafts(items))} />
+              )}
             </TabsContent>
 
             <TabsContent value="barcode" className="space-y-3">

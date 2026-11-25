@@ -4,7 +4,7 @@
 
 A food diary for tracking meals, calories, macros and weight. The app UI is in German.
 
-**Live:** [joule.berger-labs.com](https://joule.berger-labs.com). You need an account (email or Google); there is no demo or guest mode.
+**Live:** [joule.berger-labs.com](https://joule.berger-labs.com). Click **Demo ausprobieren** on the login screen to try it without an account: you get a private sandbox with two weeks of sample data. Or sign up with email or Google.
 
 <img src="./public/screenshots/tagebuch1.png" alt="Diary view with calories, macros and meals" width="720" />
 
@@ -43,6 +43,8 @@ Logging food should take a few taps, not a database search every time. Cool Joul
 
 **Row Level Security on every table, and the allowlist fails closed.** Per-user tables check `auth.uid()`. The app-level Gemini key is only used for accounts listed in `FOOD_PHOTO_APP_KEY_USER_IDS` or `FOOD_PHOTO_APP_KEY_EMAILS`; with both empty, nobody gets it. Responses also carry a Content-Security-Policy and other security headers (`src/lib/security-headers.ts`).
 
+**The demo is a real, isolated account.** "Demo ausprobieren" uses Supabase anonymous sign-in, then seeds sample meals, weigh-ins and workouts with the visitor's own session (`src/lib/demo-seed.ts`), so the rows go through the same RLS policies as everyone else's and no service key is involved. Demo users cannot use anything that costs money or links an outside account: photo analysis, saving a Gemini key, Strava and Shortcut tokens are rejected in the server functions (`allowDemo: false` in `src/lib/server-auth.ts`), not just hidden in the UI. The trade-off is that anonymous users pile up, so a scheduled job deletes them after a week.
+
 ## Architecture
 
 ```
@@ -72,7 +74,7 @@ The two Supabase variables are enough for the diary. Photo analysis, Strava, the
 
 ## Testing
 
-Vitest unit tests cover nutrition math, Open Food Facts parsing, barcode handling, photo-analysis quota and allowlist logic, encryption, rate limiting, security headers, Strava and Shortcut handling. Run them with `npm test`. CI (`npm ci`, lint, test, build) runs on pushes and pull requests to `main`.
+Vitest unit tests cover nutrition math, Open Food Facts parsing, barcode handling, photo-analysis quota and allowlist logic, encryption, rate limiting, security headers, Strava and Shortcut handling, demo seeding and demo-user rejection. Run them with `npm test`. CI (`npm ci`, lint, test, build) runs on pushes and pull requests to `main`.
 
 ## Limitations
 

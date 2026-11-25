@@ -31,6 +31,7 @@ import { GeminiApiKeyCard } from "@/components/GeminiApiKeyCard";
 import { ShortcutWebhookCard } from "@/components/ShortcutWebhookCard";
 import { StravaConnectCard } from "@/components/StravaConnectCard";
 import { AccountDataCard } from "@/components/AccountDataCard";
+import { isDemoUser } from "@/lib/demo-mode";
 
 export const Route = createFileRoute("/_authenticated/profil")({
   head: () => ({
@@ -71,6 +72,7 @@ function ProfilePage() {
   });
 
   const profile = useProfile(user.id);
+  const demo = isDemoUser(user);
 
   useEffect(() => {
     const p = profile.data;
@@ -139,11 +141,23 @@ function ProfilePage() {
   return (
     <AppShell>
       <h1 className="text-2xl font-bold tracking-tight text-slate-800">Profil & Ziele</h1>
-      <p className="mt-1 text-sm text-slate-400">{user.email}</p>
+      <p className="mt-1 text-sm text-slate-400">{demo ? "Demo-Konto" : user.email}</p>
 
-      <StravaConnectCard />
-      <ShortcutWebhookCard />
-      <GeminiApiKeyCard />
+      {demo ? (
+        <div className="mt-4 rounded-3xl bg-white p-5 shadow-xl shadow-rose-100/50">
+          <h2 className="font-semibold text-slate-800">Integrationen</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Strava, Apple-Kurzbefehle und ein eigener Gemini-Key für die KI-Fotoanalyse sind im
+            Demo-Modus deaktiviert. Mit einem eigenen Konto stehen sie zur Verfügung.
+          </p>
+        </div>
+      ) : (
+        <>
+          <StravaConnectCard />
+          <ShortcutWebhookCard />
+          <GeminiApiKeyCard />
+        </>
+      )}
       <AccountDataCard userId={user.id} email={user.email ?? null} />
 
       {profile.isError ? (

@@ -56,6 +56,7 @@ export type FoodPhotoErrorCode =
   | "NO_FOOD"
   | "RATE_LIMITED"
   | "REQUIRES_OWN_KEY"
+  | "DEMO_MODE"
   | "ANALYSIS_FAILED";
 
 export class FoodPhotoError extends Error {

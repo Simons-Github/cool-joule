@@ -1,4 +1,4 @@
-import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate, useRouteContext, useRouterState } from "@tanstack/react-router";
 import { BookOpen, LineChart, User2, LogOut } from "lucide-react";
 import type { ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { APP_NAME } from "@/lib/app-config";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { isDemoUser } from "@/lib/demo-mode";
 
 const NAV = [
   { to: "/tagebuch", label: "Tagebuch", icon: BookOpen },
@@ -17,6 +18,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { user } = useRouteContext({ from: "/_authenticated" });
+  const demo = isDemoUser(user);
 
   async function signOut() {
     await queryClient.cancelQueries();
@@ -68,6 +71,25 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
+
+      {demo && (
+        <div className="border-b border-orange-100 bg-orange-50">
+          <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 text-xs text-orange-800 sm:text-sm">
+            <span className="font-semibold">Demo-Modus</span>
+            <span className="text-orange-700/80">
+              Beispieldaten, nur für dich sichtbar. KI-Fotoanalyse und Integrationen sind
+              deaktiviert.
+            </span>
+            <button
+              type="button"
+              onClick={signOut}
+              className="font-medium text-orange-800 underline underline-offset-2 hover:text-orange-900"
+            >
+              Eigenes Konto erstellen
+            </button>
+          </div>
+        </div>
+      )}
 
       <main className="mx-auto max-w-5xl px-4 pb-28 pt-6 md:pb-12">{children}</main>
 

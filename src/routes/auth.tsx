@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { APP_NAME } from "@/lib/app-config";
+import { getDemoStartErrorMessage } from "@/lib/demo-mode";
+import { seedDemoAccount } from "@/lib/demo-seed";
 import {
   PASSWORD_MIN_LENGTH,
   PASSWORD_REQUIREMENTS_HINT,
@@ -41,6 +43,8 @@ function AuthPage() {
   const [forgotPassword, setForgotPassword] = useState(false);
   const [recovery, setRecovery] = useState(false);
   const recoveringRef = useRef(false);
+  // While the demo account is being seeded, the auth listener must not jump to /tagebuch yet.
+  const seedingDemoRef = useRef(false);
 
   useEffect(() => {
     const {
@@ -52,7 +56,7 @@ function AuthPage() {
         setForgotPassword(false);
         return;
       }
-      if (recoveringRef.current) return;
+      if (recoveringRef.current || seedingDemoRef.current) return;
       if (session && (event === "SIGNED_IN" || event === "INITIAL_SESSION")) {
         // Defer: navigating into /tagebuch runs getUser() and would deadlock supabase-js.
         setTimeout(() => {
@@ -139,6 +143,28 @@ function AuthPage() {
     setNewPassword("");
     toast.success("Passwort aktualisiert");
     navigate({ to: "/tagebuch", replace: true });
+  }
+
+  async function startDemo() {
+    setLoading(true);
+    seedingDemoRef.current = true;
+    try {
+      const { data, error } = await supabase.auth.signInAnonymously();
+      if (error || !data.user) {
+        toast.error(getDemoStartErrorMessage(error));
+        return;
+      }
+      try {
+        await seedDemoAccount(supabase, data.user.id);
+      } catch {
+        // The empty account is still usable; the onboarding dialog takes over.
+        toast.error("Beispieldaten konnten nicht geladen werden.");
+      }
+      navigate({ to: "/tagebuch", replace: true });
+    } finally {
+      seedingDemoRef.current = false;
+      setLoading(false);
+    }
   }
 
   async function google() {
@@ -358,6 +384,22 @@ function AuthPage() {
                 </svg>
                 Mit Google fortfahren
               </button>
+
+              <div className="mt-5 rounded-2xl bg-orange-50 p-4 text-center">
+                <p className="text-sm font-medium text-slate-700">Erst mal reinschauen?</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Ohne Anmeldung, mit Beispieldaten. Demo-Konten werden regelmäßig gelöscht.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={startDemo}
+                  disabled={loading}
+                  className="mt-3 w-full rounded-xl border-orange-200 bg-white text-orange-700 hover:bg-orange-100 hover:text-orange-800"
+                >
+                  Demo ausprobieren
+                </Button>
+              </div>
             </>
           )}
         </div>

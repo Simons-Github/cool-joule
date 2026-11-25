@@ -128,10 +128,10 @@ async function getAdmin() {
   }
 }
 
-async function requireUserId(): Promise<string> {
+async function requireUserId(options?: { allowDemo?: boolean }): Promise<string> {
   const { requireAuthenticatedUserId } = await import("@/lib/server-auth");
   try {
-    return await requireAuthenticatedUserId(AUTH_MESSAGE);
+    return await requireAuthenticatedUserId(AUTH_MESSAGE, options);
   } catch (error) {
     if (error instanceof Error && error.message === AUTH_MESSAGE) {
       throw new StravaError("UNAUTHENTICATED", AUTH_MESSAGE);
@@ -529,7 +529,7 @@ export async function getStravaStatus(): Promise<StravaStatus> {
 }
 
 export async function startStravaConnect(): Promise<{ url: string }> {
-  const userId = await requireUserId();
+  const userId = await requireUserId({ allowDemo: false });
   await enforceStravaLimit(userId, "strava_connect");
   const config = requireStravaConfig();
   const key = getEncryptionKey();
@@ -548,7 +548,7 @@ export async function completeStravaConnect(input: {
   state: string;
   scope?: string;
 }): Promise<StravaStatus> {
-  const userId = await requireUserId();
+  const userId = await requireUserId({ allowDemo: false });
   await enforceStravaLimit(userId, "strava_connect");
   const config = requireStravaConfig();
   const key = getEncryptionKey();
@@ -628,7 +628,7 @@ export async function completeStravaConnect(input: {
 
 export async function syncStravaActivities(force = false): Promise<StravaSyncResult> {
   const configured = getStravaConfig() !== null;
-  const userId = await requireUserId();
+  const userId = await requireUserId({ allowDemo: false });
   const row = await loadConnection(userId);
   if (!row) {
     return { configured, connected: false, skipped: true, imported: 0, lastSyncedAt: null };
@@ -674,7 +674,7 @@ export async function disconnectStrava(): Promise<StravaStatus> {
 }
 
 export async function ignoreStravaActivity(externalId: string): Promise<void> {
-  const userId = await requireUserId();
+  const userId = await requireUserId({ allowDemo: false });
   const trimmed = externalId.trim();
   if (!trimmed) return;
   const row = await loadConnection(userId);

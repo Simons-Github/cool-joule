@@ -41,10 +41,10 @@ async function getAdmin() {
   }
 }
 
-async function requireUserId(): Promise<string> {
+async function requireUserId(options?: { allowDemo?: boolean }): Promise<string> {
   const { requireAuthenticatedUserId } = await import("@/lib/server-auth");
   try {
-    return await requireAuthenticatedUserId(AUTH_MESSAGE);
+    return await requireAuthenticatedUserId(AUTH_MESSAGE, options);
   } catch (error) {
     if (error instanceof Error && error.message === AUTH_MESSAGE) {
       throw new GeminiKeyError("UNAUTHENTICATED", AUTH_MESSAGE);
@@ -101,7 +101,7 @@ export async function getUserGeminiKeyStatus(): Promise<GeminiKeyStatus> {
 }
 
 export async function saveUserGeminiApiKey(apiKey: string): Promise<GeminiKeyStatus> {
-  const userId = await requireUserId();
+  const userId = await requireUserId({ allowDemo: false });
   const { enforceRateLimit } = await import("@/lib/rate-limit.server");
   const { RateLimitError } = await import("@/lib/rate-limit");
   try {

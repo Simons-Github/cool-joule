@@ -8,6 +8,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { AppShell } from "@/components/AppShell";
 import { OnboardingModal } from "@/components/OnboardingModal";
 import { FoodSearchModal } from "@/components/FoodSearchModal";
+import { isDemoUser } from "@/lib/demo-mode";
 import { EditFoodLogDialog } from "@/components/EditFoodLogDialog";
 import { ExercisePanel } from "@/components/ExercisePanel";
 import { ErrorState } from "@/components/ErrorState";
@@ -468,6 +469,7 @@ function DiaryPage() {
           mealType={modalMeal}
           date={date}
           userId={user.id}
+          demo={isDemoUser(user)}
         />
       )}
 

@@ -55,10 +55,10 @@ async function getAdmin() {
   }
 }
 
-async function requireUserId(): Promise<string> {
+async function requireUserId(options?: { allowDemo?: boolean }): Promise<string> {
   const { requireAuthenticatedUserId } = await import("@/lib/server-auth");
   try {
-    return await requireAuthenticatedUserId(AUTH_MESSAGE);
+    return await requireAuthenticatedUserId(AUTH_MESSAGE, options);
   } catch (error) {
     if (error instanceof Error && error.message === AUTH_MESSAGE) {
       throw new ShortcutError("UNAUTHENTICATED", AUTH_MESSAGE);
@@ -110,7 +110,7 @@ export async function getShortcutTokenStatus(): Promise<ShortcutTokenStatus> {
 }
 
 export async function createShortcutToken(): Promise<ShortcutTokenStatus> {
-  const userId = await requireUserId();
+  const userId = await requireUserId({ allowDemo: false });
   await enforceShortcutLimit(userId, "shortcut_token");
   const admin = await getAdmin();
   const token = generateShortcutToken();
