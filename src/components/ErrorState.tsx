@@ -1,5 +1,6 @@
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/lib/i18n/react";
 
 /**
  * Shared error placeholder for failed queries (network issues, RLS errors, etc.).
@@ -7,8 +8,8 @@ import { Button } from "@/components/ui/button";
  * so retrying doesn't cause a layout jump.
  */
 export function ErrorState({
-  title = "Daten konnten nicht geladen werden",
-  message = "Bitte prüfe deine Internetverbindung und versuche es erneut.",
+  title,
+  message,
   onRetry,
   className,
 }: {
@@ -17,6 +18,7 @@ export function ErrorState({
   onRetry?: () => void;
   className?: string;
 }) {
+  const t = useT();
   return (
     <div
       role="alert"
@@ -26,12 +28,12 @@ export function ErrorState({
         <AlertTriangle className="size-6" aria-hidden="true" />
       </div>
       <div>
-        <p className="font-semibold text-slate-800">{title}</p>
-        <p className="mt-1 text-sm text-slate-500">{message}</p>
+        <p className="font-semibold text-slate-800">{title ?? t("errorState.title")}</p>
+        <p className="mt-1 text-sm text-slate-500">{message ?? t("errorState.message")}</p>
       </div>
       {onRetry && (
         <Button onClick={onRetry} variant="outline" className="mt-1 rounded-xl">
-          Erneut versuchen
+          {t("common.retry")}
         </Button>
       )}
     </div>

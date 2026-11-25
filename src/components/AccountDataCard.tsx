@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useI18n } from "@/lib/i18n/react";
 import { supabase } from "@/integrations/supabase/client";
 import { deleteAccount } from "@/lib/delete-account";
 import {
@@ -16,17 +17,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export function AccountDataCard({ userId, email }: { userId: string; email: string | null }) {
+  const { t, lang } = useI18n();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [confirmEmail, setConfirmEmail] = useState("");
-  const confirmation = getDeleteConfirmation(email);
+  const confirmation = getDeleteConfirmation(email, lang);
   const confirmMatches = isDeleteConfirmed(confirmEmail, email);
 
   const exportData = useMutation({
     mutationFn: () => collectAccountExport(userId, email),
     onSuccess: (payload) => {
       downloadJson(accountExportFilename(), payload);
-      toast.success("Export gespeichert");
+      toast.success(t("account.exportSaved"));
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -37,16 +39,16 @@ export function AccountDataCard({ userId, email }: { userId: string; email: stri
       await queryClient.cancelQueries();
       queryClient.clear();
       await supabase.auth.signOut();
-      toast.success("Konto gelöscht");
+      toast.success(t("account.deleted"));
       navigate({ to: "/", replace: true });
     },
     onError: (error: unknown) => {
       const message =
         error instanceof RateLimitError
-          ? error.message
+          ? t("error.rateLimited")
           : error instanceof Error
             ? error.message
-            : "Das Konto konnte nicht gelöscht werden.";
+            : t("account.deleteFailed");
       toast.error(message);
     },
   });
@@ -54,10 +56,8 @@ export function AccountDataCard({ userId, email }: { userId: string; email: stri
   return (
     <div className="mt-4 space-y-4 rounded-3xl bg-white p-5 shadow-lg shadow-rose-50">
       <div>
-        <h2 className="text-lg font-semibold text-slate-800">Daten & Konto</h2>
-        <p className="mt-1 text-sm text-slate-400">
-          Lade eine JSON-Kopie deiner Einträge herunter oder lösche das Konto unwiderruflich.
-        </p>
+        <h2 className="text-lg font-semibold text-slate-800">{t("account.title")}</h2>
+        <p className="mt-1 text-sm text-slate-400">{t("account.intro")}</p>
       </div>
 
       <Button
@@ -67,7 +67,7 @@ export function AccountDataCard({ userId, email }: { userId: string; email: stri
         disabled={exportData.isPending}
         onClick={() => exportData.mutate()}
       >
-        {exportData.isPending ? "Exportiere…" : "Daten exportieren"}
+        {exportData.isPending ? t("account.exporting") : t("account.export")}
       </Button>
 
       <div className="space-y-2 border-t border-rose-50 pt-4">
@@ -88,7 +88,7 @@ export function AccountDataCard({ userId, email }: { userId: string; email: stri
           disabled={remove.isPending || !confirmMatches}
           onClick={() => remove.mutate()}
         >
-          {remove.isPending ? "Lösche…" : "Konto löschen"}
+          {remove.isPending ? t("account.deleting") : t("account.delete")}
         </Button>
       </div>
     </div>

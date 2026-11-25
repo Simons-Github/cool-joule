@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useI18n } from "@/lib/i18n/react";
 import { deleteGeminiApiKey, getGeminiKeyStatus, saveGeminiApiKey } from "@/lib/user-gemini-key";
 import { getGeminiKeyErrorMessage, validateGeminiApiKey } from "@/lib/gemini-api-key";
 import { foodPhotoQuotaQueryKey, SERVER_KEY_PHOTO_LIMIT } from "@/lib/food-photo-quota";
@@ -12,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 const GEMINI_KEY_STATUS_QUERY = ["gemini-key-status"] as const;
 
 export function GeminiApiKeyCard() {
+  const { t, lang } = useI18n();
   const queryClient = useQueryClient();
   const [apiKey, setApiKey] = useState("");
 
@@ -26,9 +28,9 @@ export function GeminiApiKeyCard() {
       setApiKey("");
       queryClient.setQueryData(GEMINI_KEY_STATUS_QUERY, nextStatus);
       void queryClient.invalidateQueries({ queryKey: foodPhotoQuotaQueryKey });
-      toast.success("API-Key gespeichert");
+      toast.success(t("gemini.saved"));
     },
-    onError: (error: unknown) => toast.error(getGeminiKeyErrorMessage(error)),
+    onError: (error: unknown) => toast.error(getGeminiKeyErrorMessage(error, lang)),
   });
 
   const remove = useMutation({
@@ -37,20 +39,20 @@ export function GeminiApiKeyCard() {
       setApiKey("");
       queryClient.setQueryData(GEMINI_KEY_STATUS_QUERY, nextStatus);
       void queryClient.invalidateQueries({ queryKey: foodPhotoQuotaQueryKey });
-      toast.success("API-Key entfernt");
+      toast.success(t("gemini.removed"));
     },
-    onError: (error: unknown) => toast.error(getGeminiKeyErrorMessage(error)),
+    onError: (error: unknown) => toast.error(getGeminiKeyErrorMessage(error, lang)),
   });
 
-  const formatError = apiKey ? validateGeminiApiKey(apiKey) : null;
+  const formatError = apiKey ? validateGeminiApiKey(apiKey, lang) : null;
   const busy = save.isPending || remove.isPending;
 
   return (
     <div className="mt-4 space-y-4 rounded-3xl bg-white p-5 shadow-lg shadow-rose-50">
       <div>
-        <h2 className="text-lg font-semibold text-slate-800">KI-Fotoanalyse</h2>
+        <h2 className="text-lg font-semibold text-slate-800">{t("gemini.title")}</h2>
         <p className="mt-1 text-sm text-slate-400">
-          Optional: hinterlege deinen eigenen Gemini-API-Key aus{" "}
+          {t("gemini.intro1")}{" "}
           <a
             href="https://aistudio.google.com/apikey"
             target="_blank"
@@ -59,26 +61,25 @@ export function GeminiApiKeyCard() {
           >
             Google AI Studio
           </a>
-          . Er wird verschlüsselt gespeichert und danach nicht mehr angezeigt. Freigeschaltete
-          Accounts können den App-Key mit {SERVER_KEY_PHOTO_LIMIT} Analysen / 24 Stunden nutzen.
+          {t("gemini.intro2", { limit: SERVER_KEY_PHOTO_LIMIT })}
         </p>
       </div>
 
       {status.isLoading ? (
         <Skeleton className="h-5 w-48 rounded" />
       ) : status.isError ? (
-        <p className="text-sm text-rose-600">{getGeminiKeyErrorMessage(status.error)}</p>
+        <p className="text-sm text-rose-600">{getGeminiKeyErrorMessage(status.error, lang)}</p>
       ) : status.data?.configured && status.data.suffix ? (
         <p className="text-sm text-slate-600">
-          Hinterlegt{" "}
+          {t("gemini.stored")}{" "}
           <span className="font-mono tabular-nums text-slate-800">••••{status.data.suffix}</span>
         </p>
       ) : (
-        <p className="text-sm text-slate-400">Kein Key hinterlegt</p>
+        <p className="text-sm text-slate-400">{t("gemini.none")}</p>
       )}
 
       <div className="space-y-2">
-        <Label htmlFor="gemini-api-key">Gemini-API-Key</Label>
+        <Label htmlFor="gemini-api-key">{t("gemini.label")}</Label>
         <Input
           id="gemini-api-key"
           type="password"
@@ -86,7 +87,7 @@ export function GeminiApiKeyCard() {
           spellCheck={false}
           className="rounded-xl"
           value={apiKey}
-          placeholder="Key einfügen"
+          placeholder={t("gemini.placeholder")}
           onChange={(e) => setApiKey(e.target.value)}
           disabled={busy}
         />
@@ -100,7 +101,7 @@ export function GeminiApiKeyCard() {
           disabled={busy || !apiKey.trim() || Boolean(formatError)}
           onClick={() => save.mutate(apiKey)}
         >
-          {save.isPending ? "Speichern…" : "Key speichern"}
+          {save.isPending ? t("gemini.saving") : t("gemini.save")}
         </Button>
         {status.data?.configured ? (
           <Button
@@ -110,7 +111,7 @@ export function GeminiApiKeyCard() {
             disabled={busy}
             onClick={() => remove.mutate()}
           >
-            {remove.isPending ? "Entfernen…" : "Key entfernen"}
+            {remove.isPending ? t("gemini.removing") : t("gemini.remove")}
           </Button>
         ) : null}
       </div>

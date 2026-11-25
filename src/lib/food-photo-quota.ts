@@ -1,3 +1,5 @@
+import { localeFor, type Lang } from "@/lib/i18n";
+
 export const foodPhotoQuotaQueryKey = ["food-photo-quota"] as const;
 
 export const SERVER_KEY_PHOTO_LIMIT = 5;
@@ -58,8 +60,8 @@ export function ownKeyRequiredQuota(): Extract<FoodPhotoQuota, { limited: true }
   return { limited: true, remaining: 0, resetsAt: null, requiresOwnKey: true };
 }
 
-export function formatQuotaReset(iso: string): string {
-  return new Intl.DateTimeFormat("de-DE", {
+export function formatQuotaReset(iso: string, lang: Lang = "de"): string {
+  return new Intl.DateTimeFormat(localeFor(lang), {
     timeZone: "Europe/Berlin",
     weekday: "short",
     day: "numeric",

@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy, Download } from "lucide-react";
 import { toast } from "sonner";
+import { useI18n } from "@/lib/i18n/react";
+import { Rich } from "@/lib/i18n/rich";
 import {
   createShortcutToken,
   deleteShortcutToken,
@@ -28,6 +30,7 @@ function isIosDevice(): boolean {
 }
 
 export function ShortcutWebhookCard() {
+  const { t, lang } = useI18n();
   const queryClient = useQueryClient();
   const [revealed, setRevealed] = useState<string | null>(null);
 
@@ -47,9 +50,9 @@ export function ShortcutWebhookCard() {
     onSuccess: (next) => {
       setRevealed(next.token);
       queryClient.setQueryData(SHORTCUT_STATUS_QUERY, next);
-      toast.success("Webhook-Token erzeugt");
+      toast.success(t("shortcut.created"));
     },
-    onError: (error: unknown) => toast.error(getShortcutErrorMessage(error)),
+    onError: (error: unknown) => toast.error(getShortcutErrorMessage(error, lang)),
   });
 
   const remove = useMutation({
@@ -57,9 +60,9 @@ export function ShortcutWebhookCard() {
     onSuccess: (next) => {
       setRevealed(null);
       queryClient.setQueryData(SHORTCUT_STATUS_QUERY, next);
-      toast.success("Webhook-Token entfernt");
+      toast.success(t("shortcut.removed"));
     },
-    onError: (error: unknown) => toast.error(getShortcutErrorMessage(error)),
+    onError: (error: unknown) => toast.error(getShortcutErrorMessage(error, lang)),
   });
 
   const busy = create.isPending || remove.isPending;
@@ -76,35 +79,32 @@ export function ShortcutWebhookCard() {
     document.body.appendChild(link);
     link.click();
     link.remove();
-    toast.success("Kurzbefehl-Datei geladen — auf dem iPhone öffnen");
+    toast.success(t("shortcut.fileLoaded"));
   }
 
   return (
     <div className="mt-4 space-y-4 rounded-3xl bg-white p-5 shadow-lg shadow-rose-50">
       <div>
-        <h2 className="text-lg font-semibold text-slate-800">Apple Watch / Kurzbefehl</h2>
-        <p className="mt-1 text-sm text-slate-400">
-          Ohne Strava-Abo: fertigen iOS-Kurzbefehl installieren. Am zuverlässigsten als Automation
-          „Wenn Training endet“.
-        </p>
+        <h2 className="text-lg font-semibold text-slate-800">{t("shortcut.title")}</h2>
+        <p className="mt-1 text-sm text-slate-400">{t("shortcut.intro")}</p>
       </div>
 
       {status.isLoading ? (
         <Skeleton className="h-5 w-48 rounded" />
       ) : status.isError ? (
-        <p className="text-sm text-rose-600">{getShortcutErrorMessage(status.error)}</p>
+        <p className="text-sm text-rose-600">{getShortcutErrorMessage(status.error, lang)}</p>
       ) : status.data?.configured && status.data.suffix ? (
         <p className="text-sm text-slate-600">
-          Aktiv{" "}
+          {t("shortcut.active")}{" "}
           <span className="font-mono tabular-nums text-slate-800">••••{status.data.suffix}</span>
         </p>
       ) : (
-        <p className="text-sm text-slate-400">Noch kein Webhook-Token</p>
+        <p className="text-sm text-slate-400">{t("shortcut.noToken")}</p>
       )}
 
       {webhookUrl ? (
         <div className="space-y-2">
-          <p className="text-xs font-medium text-slate-500">Webhook-URL (geheim halten)</p>
+          <p className="text-xs font-medium text-slate-500">{t("shortcut.urlLabel")}</p>
           <code className="block overflow-x-auto rounded-xl bg-slate-50 px-3 py-2 text-xs break-all text-slate-700">
             {webhookUrl}
           </code>
@@ -119,10 +119,10 @@ export function ShortcutWebhookCard() {
           onClick={() => create.mutate()}
         >
           {create.isPending
-            ? "Erzeugen…"
+            ? t("shortcut.creating")
             : status.data?.configured
-              ? "Token neu erzeugen"
-              : "Token erzeugen"}
+              ? t("shortcut.regenerate")
+              : t("shortcut.create")}
         </Button>
         {webhookUrl ? (
           <Button
@@ -132,13 +132,13 @@ export function ShortcutWebhookCard() {
             disabled={busy}
             onClick={() =>
               copyText(webhookUrl).then(
-                () => toast.success("URL kopiert"),
-                () => toast.error("Kopieren nicht möglich"),
+                () => toast.success(t("shortcut.copied")),
+                () => toast.error(t("shortcut.copyFailed")),
               )
             }
           >
             <Copy className="size-4" />
-            URL kopieren
+            {t("shortcut.copyUrl")}
           </Button>
         ) : null}
         <Button
@@ -149,7 +149,7 @@ export function ShortcutWebhookCard() {
           onClick={installShortcut}
         >
           <Download className="size-4" />
-          Kurzbefehl installieren
+          {t("shortcut.install")}
         </Button>
         {origin ? (
           <a
@@ -157,7 +157,7 @@ export function ShortcutWebhookCard() {
             download={SHORTCUT_FILE_DOWNLOAD_NAME}
             className="inline-flex h-9 items-center text-sm text-rose-600 underline-offset-2 hover:underline"
           >
-            Datei laden
+            {t("shortcut.downloadFile")}
           </a>
         ) : null}
         {status.data?.configured ? (
@@ -168,35 +168,26 @@ export function ShortcutWebhookCard() {
             disabled={busy}
             onClick={() => remove.mutate()}
           >
-            {remove.isPending ? "Entfernen…" : "Token entfernen"}
+            {remove.isPending ? t("shortcut.removing") : t("shortcut.remove")}
           </Button>
         ) : null}
       </div>
 
       <ol className="list-decimal space-y-2 pl-5 text-sm text-slate-600">
         <li>
-          <span className="font-medium">Token erzeugen</span> und die Webhook-URL kopieren.
+          <Rich text={t("shortcut.step1")} />
         </li>
         <li>
-          <span className="font-medium">Kurzbefehl installieren</span> — beim Import die kopierte
-          URL einfügen. Auf dem iPhone öffnet sich die App Kurzbefehle; sonst die Datei aufs iPhone
-          legen und antippen.
+          <Rich text={t("shortcut.step2")} />
         </li>
         <li>
-          Den Kurzbefehl <span className="font-medium">einmal manuell starten</span> (Health-Zugriff
-          erlauben). Ohne heutiges Workout kann der Lauf fehlschlagen — das ist in Ordnung.
+          <Rich text={t("shortcut.step3")} />
         </li>
         <li>
-          iPhone: <span className="font-medium">Kurzbefehle</span> →{" "}
-          <span className="font-medium">Automation</span> →{" "}
-          <span className="font-medium">Wenn Training endet</span> → Cool Joule ausführen.{" "}
-          <span className="font-medium">Vor dem Ausführen fragen</span> ausschalten.
+          <Rich text={t("shortcut.step4")} />
         </li>
       </ol>
-      <p className="text-xs text-slate-400">
-        Token neu erzeugen macht die alte URL ungültig — dann die Text-Aktion im Kurzbefehl
-        aktualisieren.
-      </p>
+      <p className="text-xs text-slate-400">{t("shortcut.regenNote")}</p>
     </div>
   );
 }

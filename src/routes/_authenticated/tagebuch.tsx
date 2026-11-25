@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Copy, Plus, Trash2, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { translate } from "@/lib/i18n";
+import { useI18n } from "@/lib/i18n/react";
 import { useProfile } from "@/hooks/useProfile";
 import { AppShell } from "@/components/AppShell";
 import { OnboardingModal } from "@/components/OnboardingModal";
@@ -14,10 +16,11 @@ import { ExercisePanel } from "@/components/ExercisePanel";
 import { ErrorState } from "@/components/ErrorState";
 import { CalorieRing, MacroBar } from "@/components/MacroStats";
 import {
-  MEALS,
+  MEAL_TYPES,
   addDays,
-  formatGermanDate,
+  formatDiaryDate,
   fromISO,
+  mealLabel,
   todayISO,
   toISO,
   type MealType,
@@ -32,13 +35,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { APP_NAME } from "@/lib/app-config";
 
-const EMPTY_STATE_TEXT: Record<MealType, string> = {
-  breakfast: "Zeit für einen guten Start in den Tag.",
-  lunch: "Trage hier deine Mahlzeit ein.",
-  dinner: "Trage hier deine Mahlzeit ein.",
-  snacks: "Lust auf einen kleinen Snack?",
-};
-
 const EMPTY_STATE_IMAGE: Record<MealType, string> = {
   breakfast: "/mascot_breakfast.png",
   lunch: "/mascot_lunch.png",
@@ -49,25 +45,25 @@ const EMPTY_STATE_IMAGE: Record<MealType, string> = {
 type FoodLogRow = Database["public"]["Tables"]["food_logs"]["Row"];
 
 export const Route = createFileRoute("/_authenticated/tagebuch")({
-  head: () => ({
-    meta: [
-      { title: `Tagebuch — ${APP_NAME}` },
-      {
-        name: "description",
-        content: "Dein tägliches Ernährungstagebuch mit Kalorien- und Makroübersicht.",
-      },
-      { property: "og:title", content: `Tagebuch — ${APP_NAME}` },
-      {
-        property: "og:description",
-        content: "Dein tägliches Ernährungstagebuch mit Kalorien- und Makroübersicht.",
-      },
-    ],
-  }),
+  head: ({ match }) => {
+    const lang = match.context.lang;
+    const title = translate(lang, "diary.meta.title", { app: APP_NAME });
+    const description = translate(lang, "diary.meta.description");
+    return {
+      meta: [
+        { title },
+        { name: "description", content: description },
+        { property: "og:title", content: title },
+        { property: "og:description", content: description },
+      ],
+    };
+  },
   component: DiaryPage,
 });
 
 function DiaryPage() {
   const { user } = Route.useRouteContext();
+  const { t, lang } = useI18n();
   const [date, setDate] = useState(todayISO());
   const [modalMeal, setModalMeal] = useState<MealType | null>(null);
   const [editing, setEditing] = useState<FoodLogRow | null>(null);
@@ -153,7 +149,7 @@ function DiaryPage() {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Eintrag wiederhergestellt");
+      toast.success(t("diary.restored"));
       queryClient.invalidateQueries({ queryKey: ["food_logs"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -170,9 +166,9 @@ function DiaryPage() {
       return row;
     },
     onSuccess: (row) => {
-      toast.success("Eintrag gelöscht", {
+      toast.success(t("diary.deleted"), {
         action: {
-          label: "Rückgängig",
+          label: t("diary.undo"),
           onClick: () => restore.mutate(row),
         },
       });
@@ -187,14 +183,14 @@ function DiaryPage() {
         mealType ? row.meal_type === mealType : true,
       );
       if (source.length === 0) {
-        throw new Error("Es gibt nichts zu kopieren.");
+        throw new Error(t("diary.nothingToCopy"));
       }
       const inserts = toCopiedInserts(source, date);
       const { error } = await supabase.from("food_logs").insert(inserts);
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Einträge kopiert");
+      toast.success(t("diary.copied"));
       queryClient.invalidateQueries({ queryKey: ["food_logs"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -205,11 +201,7 @@ function DiaryPage() {
       mealType ? row.meal_type === mealType : true,
     );
     if (target.length > 0) {
-      const ok = window.confirm(
-        mealType
-          ? "Diese Mahlzeit hat schon Einträge. Trotzdem vom Vortag kopieren?"
-          : "Dieser Tag hat schon Einträge. Trotzdem vom Vortag kopieren?",
-      );
+      const ok = window.confirm(mealType ? t("diary.confirmCopyMeal") : t("diary.confirmCopyDay"));
       if (!ok) return;
     }
     copyFromYesterday.mutate(mealType);
@@ -243,7 +235,8 @@ function DiaryPage() {
   const isLoading = profile.isLoading || logs.isLoading;
   const hasError = profile.isError || logs.isError;
   const yesterdayHasItems = (yesterdayLogs.data ?? []).length > 0;
-  const copyDayLabel = date === todayISO() ? "Gestern kopieren" : "Vorherigen Tag kopieren";
+  const copyDayLabel = date === todayISO() ? t("diary.copyYesterday") : t("diary.copyPrevDay");
+  const meals = MEAL_TYPES.map((key) => ({ key, label: mealLabel(t, key) }));
 
   return (
     <AppShell>
@@ -255,7 +248,7 @@ function DiaryPage() {
           variant="ghost"
           size="icon"
           onClick={() => setDate(addDays(date, -1))}
-          aria-label="Vorheriger Tag"
+          aria-label={t("diary.prevDay")}
           className="rounded-xl text-slate-500 hover:bg-rose-50 hover:text-rose-500"
         >
           <ChevronLeft className="size-5" />
@@ -267,7 +260,7 @@ function DiaryPage() {
               className="min-w-40 rounded-2xl border-rose-200 bg-white text-slate-700 shadow-sm hover:bg-rose-50"
             >
               <CalendarDays className="size-4 text-rose-400" />
-              {formatGermanDate(date)}
+              {formatDiaryDate(date, lang)}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="center">
@@ -283,7 +276,7 @@ function DiaryPage() {
           variant="ghost"
           size="icon"
           onClick={() => setDate(addDays(date, 1))}
-          aria-label="Nächster Tag"
+          aria-label={t("diary.nextDay")}
           className="rounded-xl text-slate-500 hover:bg-rose-50 hover:text-rose-500"
         >
           <ChevronRight className="size-5" />
@@ -302,12 +295,12 @@ function DiaryPage() {
         </Button>
       </div>
 
-      <h1 className="sr-only">Tagebuch</h1>
+      <h1 className="sr-only">{t("nav.diary")}</h1>
 
       {hasError ? (
         <ErrorState
-          title="Tagebuch konnte nicht geladen werden"
-          message="Deine Einträge für diesen Tag konnten nicht abgerufen werden. Bitte prüfe deine Internetverbindung."
+          title={t("diary.loadError.title")}
+          message={t("diary.loadError.message")}
           onRetry={() => {
             profile.refetch();
             logs.refetch();
@@ -324,40 +317,40 @@ function DiaryPage() {
               <div className="w-full flex-1 space-y-4">
                 <div className="grid grid-cols-2 gap-2 text-center text-sm sm:grid-cols-4">
                   <div>
-                    <p className="text-slate-400">Ziel</p>
+                    <p className="text-slate-400">{t("diary.target")}</p>
                     <p className="font-semibold tabular-nums text-slate-700">{targetCal}</p>
                   </div>
                   <div>
-                    <p className="text-slate-400">Sport</p>
+                    <p className="text-slate-400">{t("diary.exercise")}</p>
                     <p className="font-semibold tabular-nums text-slate-700">
                       +{Math.round(exerciseCal)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-slate-400">Gegessen</p>
+                    <p className="text-slate-400">{t("diary.eaten")}</p>
                     <p className="font-semibold tabular-nums text-slate-700">
                       {Math.round(totals.calories)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-slate-400">Übrig</p>
+                    <p className="text-slate-400">{t("diary.remaining")}</p>
                     <p className="font-semibold tabular-nums text-slate-700">{remaining}</p>
                   </div>
                 </div>
                 <MacroBar
-                  label="Eiweiß"
+                  label={t("macro.protein")}
                   current={totals.protein}
                   target={profile.data?.target_protein ?? 120}
                   colorVar="protein"
                 />
                 <MacroBar
-                  label="Kohlenhydrate"
+                  label={t("macro.carbs")}
                   current={totals.carbs}
                   target={profile.data?.target_carbs ?? 220}
                   colorVar="carbs"
                 />
                 <MacroBar
-                  label="Fett"
+                  label={t("macro.fat")}
                   current={totals.fat}
                   target={profile.data?.target_fat ?? 65}
                   colorVar="fat"
@@ -372,7 +365,7 @@ function DiaryPage() {
 
           {/* Meal sections */}
           <div className="mt-5 space-y-4">
-            {MEALS.map((meal) => {
+            {meals.map((meal) => {
               const items = (logs.data ?? []).filter((l) => l.meal_type === meal.key);
               const mealCal = items.reduce((s, i) => s + Number(i.calories), 0);
               return (
@@ -392,7 +385,7 @@ function DiaryPage() {
                           onClick={() => requestCopy(meal.key)}
                         >
                           <Copy className="size-3.5" />
-                          Gestern
+                          {t("diary.copyMealFromYesterday")}
                         </Button>
                       )}
                       <span className="text-sm text-slate-400 tabular-nums">
@@ -409,7 +402,7 @@ function DiaryPage() {
                           alt={meal.label}
                           className="mb-1 h-14 w-14 object-contain drop-shadow-sm"
                         />
-                        <p className="text-sm text-slate-400">{EMPTY_STATE_TEXT[meal.key]}</p>
+                        <p className="text-sm text-slate-400">{t(`diary.empty.${meal.key}`)}</p>
                       </div>
                     )}
                     {items.map((item) => (
@@ -427,8 +420,11 @@ function DiaryPage() {
                             {isQuickAddServing(Number(item.serving_size_g))
                               ? ""
                               : `${Number(item.serving_size_g)} g · `}
-                            {Number(item.protein)} g E · {Number(item.carbs)} g KH ·{" "}
-                            {Number(item.fat)} g F
+                            {t("diary.itemMacros", {
+                              p: Number(item.protein),
+                              c: Number(item.carbs),
+                              f: Number(item.fat),
+                            })}
                           </p>
                         </button>
                         <span className="text-sm tabular-nums text-slate-600">
@@ -437,7 +433,7 @@ function DiaryPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          aria-label="Item löschen"
+                          aria-label={t("diary.deleteAria")}
                           onClick={() => remove.mutate(item)}
                           className="size-8 rounded-xl text-slate-300 hover:bg-rose-50 hover:text-rose-400"
                         >
@@ -453,7 +449,7 @@ function DiaryPage() {
                     className="mt-2 flex items-center gap-1.5 rounded-xl px-2 py-1.5 text-sm font-medium text-rose-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
                   >
                     <Plus className="size-4" />
-                    Nahrungsmittel hinzufügen
+                    {t("diary.addFood")}
                   </button>
                 </section>
               );
@@ -498,8 +494,8 @@ function DiarySkeleton() {
         </div>
       </section>
       <Skeleton className="h-28 w-full rounded-3xl" />
-      {MEALS.map((meal) => (
-        <div key={meal.key} className="rounded-3xl bg-white p-4 shadow-lg shadow-rose-50/80">
+      {MEAL_TYPES.map((meal) => (
+        <div key={meal} className="rounded-3xl bg-white p-4 shadow-lg shadow-rose-50/80">
           <Skeleton className="h-5 w-32 rounded-lg" />
           <Skeleton className="mt-3 h-14 w-full rounded-xl" />
         </div>

@@ -1,3 +1,5 @@
+import { translate, type Lang } from "@/lib/i18n";
+
 export type GeminiKeyStatus = {
   configured: boolean;
   suffix: string | null;
@@ -24,15 +26,15 @@ export class GeminiKeyError extends Error {
 
 const GEMINI_API_KEY_PATTERN = /^[A-Za-z0-9._~-]{20,200}$/;
 
-/** Returns a German error message, or null if the key looks structurally valid. */
-export function validateGeminiApiKey(value: string): string | null {
+/** Returns an error message (German by default), or null if the key looks structurally valid. */
+export function validateGeminiApiKey(value: string, lang: Lang = "de"): string | null {
   const key = value.trim();
-  if (!key) return "Bitte einen API-Key eingeben.";
-  if (/\s/.test(key)) return "Der API-Key darf keine Leerzeichen enthalten.";
-  if (key.length < 20) return "Der API-Key ist zu kurz.";
-  if (key.length > 200) return "Der API-Key ist zu lang.";
+  if (!key) return translate(lang, "gemini.err.empty");
+  if (/\s/.test(key)) return translate(lang, "gemini.err.whitespace");
+  if (key.length < 20) return translate(lang, "gemini.err.short");
+  if (key.length > 200) return translate(lang, "gemini.err.long");
   if (!GEMINI_API_KEY_PATTERN.test(key)) {
-    return "Der API-Key enthält ungültige Zeichen.";
+    return translate(lang, "gemini.err.chars");
   }
   return null;
 }
@@ -56,8 +58,8 @@ export function toGeminiKeyStatus(row: { key_suffix: string } | null): GeminiKey
   return { configured: true, suffix: row.key_suffix };
 }
 
-export function getGeminiKeyErrorMessage(error: unknown): string {
+export function getGeminiKeyErrorMessage(error: unknown, lang: Lang = "de"): string {
   if (error instanceof GeminiKeyError) return error.message;
   if (error instanceof Error && error.message.trim()) return error.message;
-  return "Der API-Key konnte nicht gespeichert werden.";
+  return translate(lang, "gemini.err.saveFailed");
 }

@@ -4,6 +4,7 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
@@ -14,22 +15,25 @@ import { Toaster } from "@/components/ui/sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { supabase } from "@/integrations/supabase/client";
 import { APP_NAME } from "@/lib/app-config";
+import { translate, type Lang } from "@/lib/i18n";
+import { resolveLang } from "@/lib/i18n/lang";
+import { I18nProvider } from "@/lib/i18n/provider";
+import { useT } from "@/lib/i18n/react";
 
 function NotFoundComponent() {
+  const t = useT();
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-orange-50 to-rose-50 px-4">
       <div className="max-w-md text-center">
         <h1 className="text-7xl font-bold text-slate-800">404</h1>
-        <h2 className="mt-4 text-xl font-semibold text-slate-800">Seite nicht gefunden</h2>
-        <p className="mt-2 text-sm text-slate-500">
-          Die angeforderte Seite existiert nicht oder wurde verschoben.
-        </p>
+        <h2 className="mt-4 text-xl font-semibold text-slate-800">{t("root.notFound.title")}</h2>
+        <p className="mt-2 text-sm text-slate-500">{t("root.notFound.text")}</p>
         <div className="mt-6">
           <Link
             to="/"
             className="inline-flex items-center justify-center rounded-2xl bg-rose-500 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-rose-300/40 transition-colors hover:bg-rose-600"
           >
-            Zur Startseite
+            {t("root.toHome")}
           </Link>
         </div>
       </div>
@@ -40,16 +44,15 @@ function NotFoundComponent() {
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
+  const t = useT();
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-orange-50 to-rose-50 px-4">
       <div className="max-w-md text-center">
         <h1 className="text-xl font-semibold tracking-tight text-slate-800">
-          Seite konnte nicht geladen werden
+          {t("root.error.title")}
         </h1>
-        <p className="mt-2 text-sm text-slate-500">
-          Etwas ist schiefgelaufen. Bitte lade die Seite neu oder kehre zur Startseite zurück.
-        </p>
+        <p className="mt-2 text-sm text-slate-500">{t("root.error.text")}</p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
             onClick={() => {
@@ -58,13 +61,13 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
             }}
             className="inline-flex items-center justify-center rounded-2xl bg-rose-500 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-rose-300/40 transition-colors hover:bg-rose-600"
           >
-            Erneut versuchen
+            {t("common.retry")}
           </button>
           <a
             href="/"
             className="inline-flex items-center justify-center rounded-2xl border border-rose-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-rose-50"
           >
-            Zur Startseite
+            {t("root.toHome")}
           </a>
         </div>
       </div>
@@ -73,37 +76,38 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  head: () => ({
-    meta: [
-      { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: `${APP_NAME} — Kalorien & Makros tracken` },
-      {
-        name: "description",
-        content: "Ernährungstagebuch für Kalorien, Makros und Gewicht — auf Deutsch.",
-      },
-      { name: "author", content: APP_NAME },
-      { property: "og:title", content: `${APP_NAME} — Kalorien & Makros tracken` },
-      {
-        property: "og:description",
-        content: "Ernährungstagebuch für Kalorien, Makros und Gewicht — auf Deutsch.",
-      },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-      { name: "theme-color", content: "#f43f5e" },
-      { name: "apple-mobile-web-app-capable", content: "yes" },
-      { name: "apple-mobile-web-app-title", content: APP_NAME },
-    ],
-    links: [
-      {
-        rel: "stylesheet",
-        href: appCss,
-      },
-      { rel: "icon", href: "/favicon.png", type: "image/png" },
-      { rel: "apple-touch-icon", href: "/favicon.png" },
-      { rel: "manifest", href: "/manifest.webmanifest" },
-    ],
-  }),
+  // Language comes from the `lang` cookie (read on the server for SSR), default German.
+  beforeLoad: async (): Promise<{ lang: Lang }> => ({ lang: await resolveLang() }),
+  head: ({ match }) => {
+    const lang = match.context.lang;
+    const title = translate(lang, "root.title", { app: APP_NAME });
+    const description = translate(lang, "root.description");
+    return {
+      meta: [
+        { charSet: "utf-8" },
+        { name: "viewport", content: "width=device-width, initial-scale=1" },
+        { title },
+        { name: "description", content: description },
+        { name: "author", content: APP_NAME },
+        { property: "og:title", content: title },
+        { property: "og:description", content: description },
+        { property: "og:type", content: "website" },
+        { name: "twitter:card", content: "summary_large_image" },
+        { name: "theme-color", content: "#f43f5e" },
+        { name: "apple-mobile-web-app-capable", content: "yes" },
+        { name: "apple-mobile-web-app-title", content: APP_NAME },
+      ],
+      links: [
+        {
+          rel: "stylesheet",
+          href: appCss,
+        },
+        { rel: "icon", href: "/favicon.png", type: "image/png" },
+        { rel: "apple-touch-icon", href: "/favicon.png" },
+        { rel: "manifest", href: "/manifest.webmanifest" },
+      ],
+    };
+  },
   shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
@@ -111,13 +115,21 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 });
 
 function RootShell({ children }: { children: ReactNode }) {
+  const lang = useRouterState({
+    select: (state) => state.matches[0]?.context.lang,
+  });
+  const router = useRouter();
+  const current: Lang = lang ?? "de";
   return (
-    <html lang="de" className="light">
+    <html lang={current} className="light">
       <head>
         <HeadContent />
       </head>
       <body>
-        {children}
+        {/* Re-run beforeLoad/head() after a language change so titles and <html lang> follow. */}
+        <I18nProvider lang={current} onChange={() => void router.invalidate()}>
+          {children}
+        </I18nProvider>
         <Scripts />
       </body>
     </html>

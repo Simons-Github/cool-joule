@@ -2,10 +2,13 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useT } from "@/lib/i18n/react";
 import {
-  ACTIVITY_LABELS,
-  GOAL_LABELS,
+  ACTIVITY_LEVELS,
+  GOALS,
+  activityLabel,
   calculateTargets,
+  goalLabel,
   todayISO,
   type ActivityLevel,
   type Gender,
@@ -34,9 +37,16 @@ type Draft = {
   goal: Goal;
 };
 
-const STEPS = ["Über dich", "Gewicht", "Aktivität", "Ziel", "Dein Plan"];
+const STEPS = [
+  "onb.step.about",
+  "onb.step.weight",
+  "onb.step.activity",
+  "onb.step.goal",
+  "onb.step.plan",
+] as const;
 
 export function OnboardingModal({ open, userId }: { open: boolean; userId: string }) {
+  const t = useT();
   const [step, setStep] = useState(0);
   const [d, setD] = useState<Draft>({
     gender: "female",
@@ -87,7 +97,7 @@ export function OnboardingModal({ open, userId }: { open: boolean; userId: strin
       );
     },
     onSuccess: () => {
-      toast.success("Profil gespeichert – los geht's!");
+      toast.success(t("onb.saved"));
       queryClient.invalidateQueries();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -97,9 +107,13 @@ export function OnboardingModal({ open, userId }: { open: boolean; userId: strin
     <Dialog open={open}>
       <DialogContent className="max-w-lg [&>button]:hidden">
         <DialogHeader>
-          <DialogTitle>Willkommen bei {APP_NAME}</DialogTitle>
+          <DialogTitle>{t("onb.title", { app: APP_NAME })}</DialogTitle>
           <DialogDescription>
-            Schritt {step + 1} von {STEPS.length} — {STEPS[step]}
+            {t("onb.stepOf", {
+              step: step + 1,
+              total: STEPS.length,
+              name: t(STEPS[step] ?? STEPS[0]),
+            })}
           </DialogDescription>
         </DialogHeader>
 
@@ -116,7 +130,7 @@ export function OnboardingModal({ open, userId }: { open: boolean; userId: strin
           {step === 0 && (
             <>
               <div className="space-y-2">
-                <Label>Geschlecht</Label>
+                <Label>{t("onb.gender")}</Label>
                 <div className="grid grid-cols-2 gap-2">
                   {(["female", "male"] as Gender[]).map((g) => (
                     <Button
@@ -125,14 +139,14 @@ export function OnboardingModal({ open, userId }: { open: boolean; userId: strin
                       variant={d.gender === g ? "default" : "outline"}
                       onClick={() => setD({ ...d, gender: g })}
                     >
-                      {g === "female" ? "Weiblich" : "Männlich"}
+                      {g === "female" ? t("onb.female") : t("onb.male")}
                     </Button>
                   ))}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label htmlFor="age">Alter (Jahre)</Label>
+                  <Label htmlFor="age">{t("onb.age")}</Label>
                   <Input
                     id="age"
                     type="number"
@@ -141,7 +155,7 @@ export function OnboardingModal({ open, userId }: { open: boolean; userId: strin
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="height">Größe (cm)</Label>
+                  <Label htmlFor="height">{t("onb.height")}</Label>
                   <Input
                     id="height"
                     type="number"
@@ -156,7 +170,7 @@ export function OnboardingModal({ open, userId }: { open: boolean; userId: strin
           {step === 1 && (
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label htmlFor="w">Aktuelles Gewicht (kg)</Label>
+                <Label htmlFor="w">{t("onb.weightNow")}</Label>
                 <Input
                   id="w"
                   type="number"
@@ -166,7 +180,7 @@ export function OnboardingModal({ open, userId }: { open: boolean; userId: strin
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="tw">Zielgewicht (kg)</Label>
+                <Label htmlFor="tw">{t("onb.weightTarget")}</Label>
                 <Input
                   id="tw"
                   type="number"
@@ -180,9 +194,9 @@ export function OnboardingModal({ open, userId }: { open: boolean; userId: strin
 
           {step === 2 && (
             <div className="space-y-2">
-              <Label>Aktivitätslevel</Label>
+              <Label>{t("onb.activityLevel")}</Label>
               <div className="grid gap-2">
-                {(Object.keys(ACTIVITY_LABELS) as ActivityLevel[]).map((a) => (
+                {ACTIVITY_LEVELS.map((a) => (
                   <Button
                     key={a}
                     type="button"
@@ -190,7 +204,7 @@ export function OnboardingModal({ open, userId }: { open: boolean; userId: strin
                     className="justify-start"
                     onClick={() => setD({ ...d, activity: a })}
                   >
-                    {ACTIVITY_LABELS[a]}
+                    {activityLabel(t, a)}
                   </Button>
                 ))}
               </div>
@@ -199,9 +213,9 @@ export function OnboardingModal({ open, userId }: { open: boolean; userId: strin
 
           {step === 3 && (
             <div className="space-y-2">
-              <Label>Was ist dein Ziel?</Label>
+              <Label>{t("onb.goalQuestion")}</Label>
               <div className="grid gap-2">
-                {(Object.keys(GOAL_LABELS) as Goal[]).map((g) => (
+                {GOALS.map((g) => (
                   <Button
                     key={g}
                     type="button"
@@ -209,7 +223,7 @@ export function OnboardingModal({ open, userId }: { open: boolean; userId: strin
                     className="justify-start"
                     onClick={() => setD({ ...d, goal: g })}
                   >
-                    {GOAL_LABELS[g]}
+                    {goalLabel(t, g)}
                   </Button>
                 ))}
               </div>
@@ -218,41 +232,38 @@ export function OnboardingModal({ open, userId }: { open: boolean; userId: strin
 
           {step === 4 && (
             <div className="rounded-2xl bg-rose-50/60 p-4">
-              <p className="text-sm text-slate-400">Dein Tagesziel</p>
+              <p className="text-sm text-slate-400">{t("onb.dailyTarget")}</p>
               <p className="text-4xl font-bold tabular-nums text-slate-800">
                 {targets.calories} kcal
               </p>
               <div className="mt-4 grid grid-cols-3 gap-3 text-center text-sm">
                 <div>
-                  <p className="text-slate-400">Eiweiß</p>
+                  <p className="text-slate-400">{t("macro.protein")}</p>
                   <p className="font-semibold text-slate-700">{targets.protein} g</p>
                 </div>
                 <div>
-                  <p className="text-slate-400">Kohlenhydrate</p>
+                  <p className="text-slate-400">{t("macro.carbs")}</p>
                   <p className="font-semibold text-slate-700">{targets.carbs} g</p>
                 </div>
                 <div>
-                  <p className="text-slate-400">Fett</p>
+                  <p className="text-slate-400">{t("macro.fat")}</p>
                   <p className="font-semibold text-slate-700">{targets.fat} g</p>
                 </div>
               </div>
-              <p className="mt-4 text-xs text-slate-400">
-                Berechnet nach der Mifflin-St-Jeor-Formel. Du kannst alles später im Profil
-                anpassen.
-              </p>
+              <p className="mt-4 text-xs text-slate-400">{t("onb.formulaNote")}</p>
             </div>
           )}
         </div>
 
         <div className="flex justify-between gap-2">
           <Button variant="ghost" disabled={step === 0} onClick={() => setStep((s) => s - 1)}>
-            Zurück
+            {t("common.back")}
           </Button>
           {step < STEPS.length - 1 ? (
-            <Button onClick={() => setStep((s) => s + 1)}>Weiter</Button>
+            <Button onClick={() => setStep((s) => s + 1)}>{t("onb.next")}</Button>
           ) : (
             <Button onClick={() => save.mutate()} disabled={save.isPending}>
-              {save.isPending ? "Speichern…" : "Plan starten"}
+              {save.isPending ? t("onb.saving") : t("onb.start")}
             </Button>
           )}
         </div>

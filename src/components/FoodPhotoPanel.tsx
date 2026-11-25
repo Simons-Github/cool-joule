@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Camera, ImagePlus, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useI18n, useT } from "@/lib/i18n/react";
 import { analyzeFoodPhoto, getFoodPhotoQuota } from "@/lib/analyze-food-photo";
 import { compressFoodPhoto } from "@/lib/compress-food-photo";
 import {
@@ -40,13 +41,12 @@ export function FoodPhotoResults({
   onAdd: () => void;
   adding: boolean;
 }) {
+  const { t, lang } = useI18n();
   const selectedCount = drafts.filter((d) => d.selected).length;
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        Nährwerte aus deinem Tagebuch / Standardwerten — bitte Portion prüfen.
-      </p>
+      <p className="text-sm text-muted-foreground">{t("photo.resultsHint")}</p>
       <ScrollArea className="h-72">
         <div className="space-y-2 pr-3">
           {drafts.map((draft) => {
@@ -66,7 +66,7 @@ export function FoodPhotoResults({
                         ),
                       )
                     }
-                    aria-label={`${draft.name} auswählen`}
+                    aria-label={t("photo.selectAria", { name: draft.name })}
                   />
                   <div className="min-w-0 flex-1 space-y-2">
                     <Input
@@ -78,11 +78,11 @@ export function FoodPhotoResults({
                           ),
                         )
                       }
-                      aria-label="Name"
+                      aria-label={t("photo.nameAria")}
                     />
                     <div className="flex items-center gap-2">
                       <Label htmlFor={`grams-${draft.id}`} className="shrink-0 text-xs">
-                        Menge (g)
+                        {t("food.amountG")}
                       </Label>
                       <Input
                         id={`grams-${draft.id}`}
@@ -101,16 +101,21 @@ export function FoodPhotoResults({
                         type="button"
                         size="icon"
                         variant="ghost"
-                        aria-label="Entfernen"
+                        aria-label={t("photo.removeAria")}
                         onClick={() => onChange(drafts.filter((item) => item.id !== draft.id))}
                       >
                         <Trash2 className="size-4" />
                       </Button>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {macros.calories} kcal · {macros.protein} g E · {macros.carbs} g KH ·{" "}
-                      {macros.fat} g F · {nutritionSourceLabel(draft.nutritionSource)}
-                      {draft.confidence === "low" ? " · unsichere Erkennung" : ""}
+                      {t("photo.macroLine", {
+                        kcal: macros.calories,
+                        p: macros.protein,
+                        c: macros.carbs,
+                        f: macros.fat,
+                        source: nutritionSourceLabel(draft.nutritionSource, lang),
+                      })}
+                      {draft.confidence === "low" ? ` · ${t("photo.lowConfidence")}` : ""}
                     </p>
                   </div>
                 </div>
@@ -121,15 +126,15 @@ export function FoodPhotoResults({
       </ScrollArea>
       <div className="flex justify-between gap-2">
         <Button type="button" variant="ghost" onClick={onReset}>
-          Anderes Foto
+          {t("photo.another")}
         </Button>
         <Button type="button" onClick={onAdd} disabled={adding || selectedCount === 0}>
           {adding ? (
             <>
-              <Loader2 className="size-4 animate-spin" /> Speichern…
+              <Loader2 className="size-4 animate-spin" /> {t("photo.saving")}
             </>
           ) : (
-            `Ausgewählte hinzufügen (${selectedCount})`
+            t("photo.addSelected", { count: selectedCount })
           )}
         </Button>
       </div>
@@ -138,39 +143,58 @@ export function FoodPhotoResults({
 }
 
 function ProfileKeyLink() {
+  const t = useT();
   return (
     <Link to="/profil" className="font-medium text-rose-600 underline-offset-2 hover:underline">
-      Profil
+      {t("nav.profile")}
     </Link>
   );
 }
 
+/** Renders a translated sentence that contains a `{profile}` placeholder with the profile link. */
+function WithProfileLink({ text }: { text: string }) {
+  const [before = "", after = ""] = text.split("{profile}");
+  return (
+    <>
+      {before}
+      <ProfileKeyLink />
+      {after}
+    </>
+  );
+}
+
 function FoodPhotoQuotaHint({ quota }: { quota: FoodPhotoQuota | undefined }) {
+  const { t, lang } = useI18n();
   if (!quota?.limited) return null;
 
   if (quota.requiresOwnKey) {
     return (
       <p className="text-sm text-rose-600">
-        Der App-Key ist nur für freigeschaltete Accounts verfügbar. Hinterlege einen eigenen Key im{" "}
-        <ProfileKeyLink />.
+        <WithProfileLink text={t("photo.quota.ownKeyRequired", { profile: "{profile}" })} />
       </p>
     );
   }
 
   if (quota.remaining <= 0) {
+    const reset = quota.resetsAt
+      ? t("photo.quota.nextAnalysis", { time: formatQuotaReset(quota.resetsAt, lang) })
+      : "";
     return (
       <p className="text-sm text-rose-600">
-        Kostenloses Kontingent aufgebraucht.
-        {quota.resetsAt ? ` Nächste Analyse ab ${formatQuotaReset(quota.resetsAt)}.` : ""} Oder
-        hinterlege einen Key im <ProfileKeyLink />.
+        <WithProfileLink text={t("photo.quota.exhausted", { reset, profile: "{profile}" })} />
       </p>
     );
   }
 
   return (
     <p className="text-sm text-muted-foreground">
-      Freigeschaltete Accounts: {quota.remaining} von {SERVER_KEY_PHOTO_LIMIT} Analysen in 24
-      Stunden übrig. Unbegrenzt mit Key im <ProfileKeyLink />.
+      <WithProfileLink
+        text={t("photo.quota.remaining", {
+          remaining: quota.remaining,
+          limit: SERVER_KEY_PHOTO_LIMIT,
+          profile: "{profile}",
+        })}
+      />
     </p>
   );
 }
@@ -180,6 +204,7 @@ export function FoodPhotoCapture({
 }: {
   onAnalyzed: (items: AnalyzedFoodItem[]) => void;
 }) {
+  const { t, lang } = useI18n();
   const queryClient = useQueryClient();
   const cameraInputId = useId();
   const galleryInputId = useId();
@@ -217,14 +242,14 @@ export function FoodPhotoCapture({
     onSuccess: ({ items }, vars) => {
       if (!isCurrentRequest(vars.requestId)) return;
       if (items.length === 0) {
-        toast.error("Kein Essen erkennbar. Bitte ein klareres Foto versuchen.");
+        toast.error(t("photo.noFood"));
         return;
       }
       onAnalyzed(items);
     },
     onError: (error, vars) => {
       if (!isCurrentRequest(vars.requestId)) return;
-      toast.error(getFoodPhotoErrorMessage(error));
+      toast.error(getFoodPhotoErrorMessage(error, lang));
     },
     onSettled: (_data, _error, vars) => {
       if (!isCurrentRequest(vars.requestId)) return;
@@ -241,7 +266,7 @@ export function FoodPhotoCapture({
     if (!file) return;
     const requestId = ++requestIdRef.current;
     try {
-      const compressed = await compressFoodPhoto(file);
+      const compressed = await compressFoodPhoto(file, t);
       if (!isCurrentRequest(requestId)) return;
       revokePreview();
       previewUrlRef.current = compressed.previewUrl;
@@ -251,16 +276,13 @@ export function FoodPhotoCapture({
       startAnalyze(nextPayload, requestId);
     } catch (error) {
       if (!isCurrentRequest(requestId)) return;
-      toast.error(getFoodPhotoErrorMessage(error));
+      toast.error(getFoodPhotoErrorMessage(error, lang));
     }
   };
 
   return (
     <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">
-        Fotografiere dein Essen oder lade ein Bild hoch. Die Analyse startet automatisch — bitte
-        Portion prüfen.
-      </p>
+      <p className="text-sm text-muted-foreground">{t("photo.capture.intro")}</p>
       <FoodPhotoQuotaHint quota={quota.data} />
       <input
         id={cameraInputId}
@@ -287,7 +309,7 @@ export function FoodPhotoCapture({
       />
       <div className="flex flex-wrap gap-2">
         <Button type="button" className="flex-1" onClick={() => cameraRef.current?.click()}>
-          <Camera className="size-4" /> Fotografieren
+          <Camera className="size-4" /> {t("photo.take")}
         </Button>
         <Button
           type="button"
@@ -295,13 +317,17 @@ export function FoodPhotoCapture({
           className="flex-1"
           onClick={() => galleryRef.current?.click()}
         >
-          <ImagePlus className="size-4" /> Hochladen
+          <ImagePlus className="size-4" /> {t("photo.upload")}
         </Button>
       </div>
 
       {previewUrl && (
         <div className="relative overflow-hidden rounded-2xl bg-slate-100">
-          <img src={previewUrl} alt="Ausgewähltes Essen" className="max-h-56 w-full object-cover" />
+          <img
+            src={previewUrl}
+            alt={t("photo.previewAlt")}
+            className="max-h-56 w-full object-cover"
+          />
           {analyze.isPending && (
             <div
               className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/40 text-white"
@@ -309,7 +335,7 @@ export function FoodPhotoCapture({
               aria-live="polite"
             >
               <Loader2 className="size-6 animate-spin" />
-              <p className="text-sm">Erkenne Lebensmittel…</p>
+              <p className="text-sm">{t("photo.recognizing")}</p>
             </div>
           )}
         </div>
@@ -324,12 +350,12 @@ export function FoodPhotoCapture({
         >
           {analyze.isPending ? (
             <>
-              <Loader2 className="size-4 animate-spin" /> Erkenne Lebensmittel…
+              <Loader2 className="size-4 animate-spin" /> {t("photo.recognizing")}
             </>
           ) : quotaBlocked ? (
-            "Kontingent aufgebraucht"
+            t("photo.quotaUsedUp")
           ) : (
-            "Erneut analysieren"
+            t("photo.reanalyze")
           )}
         </Button>
       )}

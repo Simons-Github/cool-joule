@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useI18n } from "@/lib/i18n/react";
 import { supabase } from "@/integrations/supabase/client";
 import { ignoreStravaActivity } from "@/lib/strava-connect";
 import { getStravaErrorMessage } from "@/lib/strava";
@@ -10,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export function ExercisePanel({ userId, date }: { userId: string; date: string }) {
+  const { t, lang } = useI18n();
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [calories, setCalories] = useState("");
@@ -32,18 +34,18 @@ export function ExercisePanel({ userId, date }: { userId: string; date: string }
     mutationFn: async () => {
       const kcal = Number(calories);
       if (!Number.isFinite(kcal) || kcal < 0) {
-        throw new Error("Bitte gültige Kalorien eingeben.");
+        throw new Error(t("ex.invalidKcal"));
       }
       const { error } = await supabase.from("exercise_logs").insert({
         user_id: userId,
         date,
-        name: name.trim() || "Training",
+        name: name.trim() || t("ex.defaultName"),
         calories: kcal,
       });
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Aktivität gespeichert");
+      toast.success(t("ex.saved"));
       setName("");
       setCalories("");
       queryClient.invalidateQueries({ queryKey: ["exercise_logs"] });
@@ -65,10 +67,10 @@ export function ExercisePanel({ userId, date }: { userId: string; date: string }
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Aktivität gelöscht");
+      toast.success(t("ex.deleted"));
       queryClient.invalidateQueries({ queryKey: ["exercise_logs"] });
     },
-    onError: (e: unknown) => toast.error(getStravaErrorMessage(e)),
+    onError: (e: unknown) => toast.error(getStravaErrorMessage(e, lang)),
   });
 
   const items = exercises.data ?? [];
@@ -77,14 +79,12 @@ export function ExercisePanel({ userId, date }: { userId: string; date: string }
   return (
     <section className="rounded-3xl bg-white p-4 shadow-lg shadow-rose-50/80">
       <div className="flex items-center justify-between">
-        <h2 className="font-semibold text-slate-800">Aktivität</h2>
+        <h2 className="font-semibold text-slate-800">{t("ex.title")}</h2>
         <span className="text-sm text-slate-400 tabular-nums">+{Math.round(total)} kcal</span>
       </div>
 
       <div className="mt-3 divide-y divide-slate-50">
-        {items.length === 0 && (
-          <p className="py-2 text-sm text-slate-400">Noch keine Aktivität für diesen Tag.</p>
-        )}
+        {items.length === 0 && <p className="py-2 text-sm text-slate-400">{t("ex.empty")}</p>}
         {items.map((item) => (
           <div key={item.id} className="flex items-center gap-3 py-2.5">
             <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -105,7 +105,7 @@ export function ExercisePanel({ userId, date }: { userId: string; date: string }
             <Button
               variant="ghost"
               size="icon"
-              aria-label="Aktivität löschen"
+              aria-label={t("ex.deleteAria")}
               onClick={() =>
                 remove.mutate({
                   id: item.id,
@@ -124,11 +124,11 @@ export function ExercisePanel({ userId, date }: { userId: string; date: string }
       <div className="mt-3 grid grid-cols-[1fr_6.5rem_auto] gap-2">
         <div className="space-y-1">
           <Label htmlFor="ex-name" className="sr-only">
-            Aktivität
+            {t("ex.title")}
           </Label>
           <Input
             id="ex-name"
-            placeholder="z. B. Laufen"
+            placeholder={t("ex.namePlaceholder")}
             className="rounded-xl"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -136,7 +136,7 @@ export function ExercisePanel({ userId, date }: { userId: string; date: string }
         </div>
         <div className="space-y-1">
           <Label htmlFor="ex-kcal" className="sr-only">
-            Kalorien der Aktivität
+            {t("ex.kcalLabel")}
           </Label>
           <Input
             id="ex-kcal"
@@ -151,7 +151,7 @@ export function ExercisePanel({ userId, date }: { userId: string; date: string }
         <Button
           size="icon"
           className="rounded-xl"
-          aria-label="Aktivität hinzufügen"
+          aria-label={t("ex.addAria")}
           disabled={calories.trim() === "" || add.isPending}
           onClick={() => add.mutate()}
         >

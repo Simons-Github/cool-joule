@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
+import { useI18n } from "@/lib/i18n/react";
 import { supabase } from "@/integrations/supabase/client";
 import { completeStravaConnect } from "@/lib/strava-connect";
 import { getStravaErrorMessage } from "@/lib/strava";
@@ -30,6 +31,7 @@ export const Route = createFileRoute("/strava/callback")({
 });
 
 function StravaCallbackPage() {
+  const { t, lang } = useI18n();
   const navigate = useNavigate();
   const search = Route.useSearch();
   const started = useRef(false);
@@ -43,23 +45,21 @@ function StravaCallbackPage() {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) {
-        toast.error("Bitte zuerst anmelden, um Strava zu verbinden.");
+        toast.error(t("strava.cb.signInFirst"));
         await navigate({ to: "/auth", replace: true });
         return;
       }
 
       if (search.error) {
         toast.error(
-          search.error === "access_denied"
-            ? "Strava-Zugriff wurde abgelehnt."
-            : "Die Verbindung mit Strava ist fehlgeschlagen.",
+          search.error === "access_denied" ? t("strava.cb.denied") : t("strava.cb.failed"),
         );
         await navigate({ to: "/profil", replace: true });
         return;
       }
 
       if (!search.code || !search.state) {
-        toast.error("Die Strava-Anmeldung ist unvollständig. Bitte erneut verbinden.");
+        toast.error(t("strava.cb.incomplete"));
         await navigate({ to: "/profil", replace: true });
         return;
       }
@@ -71,23 +71,23 @@ function StravaCallbackPage() {
         };
         if (search.scope) payload.scope = search.scope;
         await completeStravaConnect({ data: payload });
-        toast.success("Strava verbunden");
+        toast.success(t("strava.cb.success"));
       } catch (error) {
-        toast.error(getStravaErrorMessage(error));
+        toast.error(getStravaErrorMessage(error, lang));
       }
       await navigate({ to: "/profil", replace: true });
     }
 
     void finish();
-  }, [navigate, search.code, search.error, search.scope, search.state]);
+  }, [navigate, search.code, search.error, search.scope, search.state, t, lang]);
 
   return (
     <main className="flex min-h-dvh items-center justify-center bg-rose-50 px-4">
       <div className="max-w-sm rounded-3xl bg-white p-6 text-center shadow-lg shadow-rose-100">
-        <p className="font-semibold text-slate-800">Verbindung mit Strava…</p>
-        <p className="mt-2 text-sm text-slate-400">Einen Moment, wir holen deine Workouts.</p>
+        <p className="font-semibold text-slate-800">{t("strava.cb.title")}</p>
+        <p className="mt-2 text-sm text-slate-400">{t("strava.cb.wait")}</p>
         <Link to="/profil" className="mt-4 inline-block text-sm font-medium text-rose-600">
-          Zum Profil
+          {t("strava.cb.toProfile")}
         </Link>
       </div>
     </main>

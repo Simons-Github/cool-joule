@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useI18n } from "@/lib/i18n/react";
+import { Rich } from "@/lib/i18n/rich";
 import {
   disconnectStrava,
   getStravaStatus,
@@ -24,6 +26,7 @@ function StravaMark({ className }: { className?: string }) {
 }
 
 export function StravaConnectCard() {
+  const { t, tp, lang } = useI18n();
   const queryClient = useQueryClient();
 
   const status = useQuery({
@@ -36,7 +39,7 @@ export function StravaConnectCard() {
     onSuccess: ({ url }) => {
       window.location.assign(url);
     },
-    onError: (error: unknown) => toast.error(getStravaErrorMessage(error)),
+    onError: (error: unknown) => toast.error(getStravaErrorMessage(error, lang)),
   });
 
   const sync = useMutation({
@@ -50,21 +53,19 @@ export function StravaConnectCard() {
       });
       void queryClient.invalidateQueries({ queryKey: ["exercise_logs"] });
       toast.success(
-        result.imported > 0
-          ? `${result.imported} Workout${result.imported === 1 ? "" : "s"} importiert`
-          : "Keine neuen Workouts",
+        result.imported > 0 ? tp("strava.imported", result.imported) : t("strava.noNew"),
       );
     },
-    onError: (error: unknown) => toast.error(getStravaErrorMessage(error)),
+    onError: (error: unknown) => toast.error(getStravaErrorMessage(error, lang)),
   });
 
   const disconnect = useMutation({
     mutationFn: () => disconnectStrava(),
     onSuccess: (next) => {
       queryClient.setQueryData(STRAVA_STATUS_QUERY, next);
-      toast.success("Strava getrennt");
+      toast.success(t("strava.disconnected"));
     },
-    onError: (error: unknown) => toast.error(getStravaErrorMessage(error)),
+    onError: (error: unknown) => toast.error(getStravaErrorMessage(error, lang)),
   });
 
   const busy = connect.isPending || sync.isPending || disconnect.isPending;
@@ -73,34 +74,27 @@ export function StravaConnectCard() {
     <div className="mt-4 space-y-4 rounded-3xl bg-white p-5 shadow-lg shadow-rose-50">
       <div>
         <h2 className="text-lg font-semibold text-slate-800">Strava</h2>
-        <p className="mt-1 text-sm text-slate-400">
-          Workouts automatisch ins Tagebuch übernehmen. Für Apple Watch: in der Strava-App unter
-          Einstellungen die Synchronisierung mit Apple Health einschalten.
-        </p>
+        <p className="mt-1 text-sm text-slate-400">{t("strava.intro")}</p>
       </div>
 
       {status.isLoading ? (
         <Skeleton className="h-5 w-48 rounded" />
       ) : status.isError ? (
-        <p className="text-sm text-rose-600">{getStravaErrorMessage(status.error)}</p>
+        <p className="text-sm text-rose-600">{getStravaErrorMessage(status.error, lang)}</p>
       ) : !status.data?.configured ? (
         <p className="text-sm text-slate-400">
-          Strava ist auf dem Server nicht konfiguriert. Bitte{" "}
-          <span className="font-mono text-xs">STRAVA_CLIENT_ID</span> und{" "}
-          <span className="font-mono text-xs">STRAVA_CLIENT_SECRET</span> setzen.
+          <Rich text={t("strava.notConfigured")} />
         </p>
       ) : status.data.connected ? (
         <p className="text-sm text-slate-600">
-          Verbunden
           {status.data.athleteName ? (
-            <>
-              {" "}
-              als <span className="font-medium text-slate-800">{status.data.athleteName}</span>
-            </>
-          ) : null}
+            <Rich text={t("strava.connectedAs", { name: status.data.athleteName })} />
+          ) : (
+            t("strava.connected")
+          )}
         </p>
       ) : (
-        <p className="text-sm text-slate-400">Noch nicht verbunden</p>
+        <p className="text-sm text-slate-400">{t("strava.notConnected")}</p>
       )}
 
       {status.data?.configured ? (
@@ -113,7 +107,7 @@ export function StravaConnectCard() {
                 disabled={busy}
                 onClick={() => sync.mutate()}
               >
-                {sync.isPending ? "Synchronisiere…" : "Jetzt synchronisieren"}
+                {sync.isPending ? t("strava.syncing") : t("strava.syncNow")}
               </Button>
               <Button
                 type="button"
@@ -122,7 +116,7 @@ export function StravaConnectCard() {
                 disabled={busy}
                 onClick={() => disconnect.mutate()}
               >
-                {disconnect.isPending ? "Trennen…" : "Trennen"}
+                {disconnect.isPending ? t("strava.disconnecting") : t("strava.disconnect")}
               </Button>
             </>
           ) : (
@@ -130,11 +124,11 @@ export function StravaConnectCard() {
               type="button"
               disabled={busy}
               onClick={() => connect.mutate()}
-              aria-label="Mit Strava verbinden"
+              aria-label={t("strava.connectAria")}
               className="inline-flex h-12 items-center gap-2 rounded-lg bg-[#FC4C02] px-4 text-sm font-semibold text-white shadow-sm hover:bg-[#E34402] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <StravaMark className="size-6" />
-              {connect.isPending ? "Weiterleitung…" : "Connect with Strava"}
+              {connect.isPending ? t("strava.redirecting") : "Connect with Strava"}
             </button>
           )}
         </div>

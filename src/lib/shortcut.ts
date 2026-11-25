@@ -1,3 +1,5 @@
+import { translate, type Lang } from "@/lib/i18n";
+
 export const SHORTCUT_EXERCISE_PATH = "/api/shortcuts/exercise";
 export const SHORTCUT_FILE_PATH = "/shortcuts/cool-joule-workout.shortcut";
 export const SHORTCUT_FILE_DOWNLOAD_NAME = "Cool Joule.shortcut";
@@ -28,10 +30,10 @@ export class ShortcutError extends Error {
   }
 }
 
-export function getShortcutErrorMessage(error: unknown): string {
+export function getShortcutErrorMessage(error: unknown, lang: Lang = "de"): string {
   if (error instanceof ShortcutError) return error.message;
   if (error instanceof Error && error.message.trim()) return error.message;
-  return "Der Kurzbefehl-Webhook ist fehlgeschlagen.";
+  return translate(lang, "shortcut.error.fallback");
 }
 
 export function emptyShortcutTokenStatus(): ShortcutTokenStatus {

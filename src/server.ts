@@ -2,6 +2,7 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+import { readLangFromCookie } from "./lib/i18n";
 import { applySecurityHeaders, withSecurityHeaders } from "./lib/security-headers";
 
 type ServerEntry = {
@@ -19,15 +20,19 @@ async function getServerEntry(): Promise<ServerEntry> {
   return serverEntryPromise;
 }
 
-function htmlErrorResponse(): Response {
+function htmlErrorResponse(request?: Request): Response {
+  const lang = readLangFromCookie(request?.headers.get("cookie"));
   const headers = new Headers({ "content-type": "text/html; charset=utf-8" });
   applySecurityHeaders(headers);
-  return new Response(renderErrorPage(), { status: 500, headers });
+  return new Response(renderErrorPage(lang), { status: 500, headers });
 }
 
 // h3 swallows in-handler throws into a normal 500 Response with body
 // {"unhandled":true,"message":"HTTPError"} — try/catch alone never fires for those.
-async function normalizeCatastrophicSsrResponse(response: Response): Promise<Response> {
+async function normalizeCatastrophicSsrResponse(
+  response: Response,
+  request: Request,
+): Promise<Response> {
   if (response.status < 500) return withSecurityHeaders(response);
   const contentType = response.headers.get("content-type") ?? "";
   if (!contentType.includes("application/json")) return withSecurityHeaders(response);
@@ -36,7 +41,7 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
   if (!isH3SwallowedErrorBody(body)) return withSecurityHeaders(response);
 
   console.error(consumeLastCapturedError() ?? new Error(`h3 swallowed SSR error: ${body}`));
-  return htmlErrorResponse();
+  return htmlErrorResponse(request);
 }
 
 function isH3SwallowedErrorBody(body: string): boolean {
@@ -53,10 +58,10 @@ export default {
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
-      return await normalizeCatastrophicSsrResponse(response);
+      return await normalizeCatastrophicSsrResponse(response, request);
     } catch (error) {
       console.error(error);
-      return htmlErrorResponse();
+      return htmlErrorResponse(request);
     }
   },
 };

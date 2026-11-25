@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { translate, type Lang } from "@/lib/i18n";
 
 /** Fast vision model (AI Gateway uses provider/model). */
 export const FOOD_PHOTO_MODEL = "google/gemini-3.5-flash-lite";
@@ -153,17 +154,8 @@ export function mapAnalyzedItem(raw: z.infer<typeof foodPhotoItemSchema>): Analy
   };
 }
 
-export function nutritionSourceLabel(source: FoodPhotoNutritionSource): string {
-  switch (source) {
-    case "recent":
-      return "Tagebuch";
-    case "custom":
-      return "Eigene";
-    case "generic":
-      return "Tabelle";
-    case "model":
-      return "geschätzt";
-  }
+export function nutritionSourceLabel(source: FoodPhotoNutritionSource, lang: Lang = "de"): string {
+  return translate(lang, `photo.source.${source}`);
 }
 
 export function mapAnalyzedItems(
@@ -218,9 +210,9 @@ export function isFoodPhotoTimeoutError(error: unknown): boolean {
   return false;
 }
 
-export function getFoodPhotoErrorMessage(error: unknown): string {
+export function getFoodPhotoErrorMessage(error: unknown, lang: Lang = "de"): string {
   if (error instanceof FoodPhotoError) return error.message;
-  if (isFoodPhotoTimeoutError(error)) return FOOD_PHOTO_TIMEOUT_MESSAGE;
+  if (isFoodPhotoTimeoutError(error)) return translate(lang, "photo.err.timeout");
   if (error instanceof Error && error.message.trim()) return error.message;
-  return "Die Analyse ist fehlgeschlagen. Bitte erneut versuchen.";
+  return translate(lang, "photo.err.failed");
 }

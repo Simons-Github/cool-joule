@@ -1,9 +1,16 @@
-export function renderErrorPage(): string {
+import { translate, type Lang } from "./i18n";
+
+/** Static fallback page for catastrophic SSR errors; German unless the language cookie says otherwise. */
+export function renderErrorPage(lang: Lang = "de"): string {
+  const title = translate(lang, "root.error.title");
+  const text = translate(lang, "root.error.text");
+  const retry = translate(lang, "common.retry");
+  const home = translate(lang, "root.toHome");
   return `<!doctype html>
-<html lang="de">
+<html lang="${lang}">
   <head>
     <meta charset="utf-8" />
-    <title>Seite konnte nicht geladen werden</title>
+    <title>${title}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" href="/favicon.png" type="image/png" />
     <link rel="apple-touch-icon" href="/favicon.png" />
@@ -23,11 +30,11 @@ export function renderErrorPage(): string {
   </head>
   <body>
     <div class="card">
-      <h1>Seite konnte nicht geladen werden</h1>
-      <p>Etwas ist schiefgelaufen. Bitte lade die Seite neu oder kehre zur Startseite zurück.</p>
+      <h1>${title}</h1>
+      <p>${text}</p>
       <div class="actions">
-        <button class="primary" onclick="location.reload()">Erneut versuchen</button>
-        <a class="secondary" href="/">Zur Startseite</a>
+        <button class="primary" onclick="location.reload()">${retry}</button>
+        <a class="secondary" href="/">${home}</a>
       </div>
     </div>
   </body>
